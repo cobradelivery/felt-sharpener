@@ -422,8 +422,8 @@
       src.frequency.setValueAtTime(v.pitch * s.p0, tt);
       src.frequency.linearRampToValueAtTime(v.pitch * s.p1, tt + s.dur);
       const a = s.amp == null ? 1 : s.amp;
-      amp.gain.setTargetAtTime(0.22 * a, tt, 0.02);
-      amp.gain.setTargetAtTime(0.03 * a, tt + s.dur * 0.75, 0.03);
+      amp.gain.setTargetAtTime(1.5 * a, tt, 0.02);
+      amp.gain.setTargetAtTime(0.2 * a, tt + s.dur * 0.75, 0.03);
       br.gain.setTargetAtTime(s.breath || 0.05, tt, 0.02);
       tt += s.dur;
     }
@@ -480,7 +480,7 @@
       const pitches = [110, 125, 150, 200, 220, 95];
       pitches.forEach((p, i) => {
         const v = { pitch: p * (0.95 + Math.random() * 0.1), timbre: p > 180 ? 'f' : 'm' };
-        const out = panner(-0.6 + i * 0.24, gainNode(0.35, voxBus));
+        const out = panner(-0.6 + i * 0.24, gainNode(0.5, voxBus));
         const t = now() + Math.random() * 0.12;
         const plan = kind === 'ooh'
           ? [{ vowel: 'u', dur: 0.25, p0: 1.1, p1: 1.35 }, { vowel: 'o', dur: 0.45, p0: 1.35, p1: 1.0, amp: 0.8 }]
@@ -490,5 +490,8 @@
     },
   };
 
-  FS.audio = { init, setVolumes, settings, startMusic, stopMusic, nextSong, setMood, sfx, vox, SONGS, get playing() { return music.playing; }, get songName() { return SONGS[music.songIdx].name; } };
+  /** Analyser on the master output (used by tests / level checks). */
+  function tap() { if (!init()) return null; const a = ctx.createAnalyser(); a.fftSize = 2048; master.connect(a); return a; }
+
+  FS.audio = { init, tap, setVolumes, settings, startMusic, stopMusic, nextSong, setMood, sfx, vox, SONGS, get playing() { return music.playing; }, get songName() { return SONGS[music.songIdx].name; } };
 })(typeof window !== 'undefined' ? window : globalThis);

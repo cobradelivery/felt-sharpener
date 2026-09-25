@@ -130,7 +130,7 @@
     if (paired) notes.push('the board is paired — full houses and trips are possible');
     const river = board.length === 5;
     const wet = maxSuit >= 3 || connected >= 2 || (!river && maxSuit === 2 && connected >= 1);
-    return { wet, notes, label: wet ? '[[wet board|wet]]' : '[[dry board|dry]]' };
+    return { wet, notes, label: wet ? '[[wet board|wet]]' : notes.length ? 'fairly [[dry board|dry]]' : '[[dry board|dry]]' };
   }
 
   // ---------- tier 1: big picture ----------
@@ -148,7 +148,7 @@
       else if (TM.onBubble(T)) out.push(`**Bubble time!** ${alive} players left and ${paid} get paid. The next person out gets nothing. Medium stacks should avoid risky all-ins; big stacks can pressure everyone.`);
       else if (alive <= paid + 3 && !TM.inTheMoney(T)) out.push(`**Approaching the money.** ${alive} left, ${paid} paid. Survival has extra value now ([[ICM]]) — avoid marginal all-ins unless you’re short.`);
       else if (TM.inTheMoney(T)) out.push(`**You’re in the money!** Every elimination now increases the prize. Play to climb: pick your spots, but don’t just wait around.`);
-      if (TM.isFinalTable(T) && alive > 2) out.push('**Final table.** Payouts jump with each place — watch the short stacks; they’re likely to go all-in with wide ranges.');
+      if (TM.isFinalTable(T) && T.field > 9 && alive > 2) out.push('**Final table.** Payouts jump with each place — watch the short stacks; they’re likely to go all-in with wide ranges.');
     }
     if (stackBB <= 10) out.push(`**Short stack: ${stackBB.toFixed(1)} [[BB]].** You’re in [[push/fold]] mode: when you play, go all-in; don’t make small raises or limp. Waiting too long lets the blinds eat you.`);
     else if (stackBB <= 20) out.push(`**Getting short: ${stackBB.toFixed(0)} [[BB]].** Raising and folding costs a lot now. Prefer going all-in over calling raises, and look for chances to be the first one in.`);
@@ -228,7 +228,7 @@
     isolate: () => 'Someone limped. Raising punishes the weak limp, usually gets you heads-up, and you have the stronger hand.',
     shove: (A) => `With only ${A.effBB.toFixed(1)} [[BB]], a normal raise would commit most of your chips anyway. Going [[all-in]] wins the blinds and antes often, and when called you still have a fair chance.`,
     'push-fold': (A) => `At ${A.effBB.toFixed(1)} BB, you should either go all-in or fold. This hand isn’t in the ~${Math.round((A.threshold || 0) * 100)}% worth shoving from this seat. Wait for a better spot — but don’t wait too long.`,
-    'fold-weak': (A) => `From this seat you want roughly the top ${Math.round((A.threshold || 0.2) * 100)}% of hands. This one is around the top ${Math.round(A.pctile * 100)}%. Folding costs nothing.`,
+    'fold-weak': (A) => `From this seat you want roughly the top ${Math.round((A.threshold || 0.2) * 100)}% of hands. This one is ${strength(A.pctile)}. Folding costs nothing.`,
     free: () => 'You can see the next card for free — no reason to fold.',
     limp: () => 'Completing/calling cheaply to see a flop. Only reasonable when it’s cheap and others already limped.',
     '3bet': () => 'Your hand is well ahead of the hands they would raise with. Re-raising ([[3-bet]]) builds the pot while you’re ahead and can take it down right now.',
@@ -256,6 +256,11 @@
     'check-weak': () => 'Your hand is weak and betting would rarely make better hands fold. Check and see what happens.',
     slowplay: () => 'A trap (slow-play).',
   };
+  /** Plain-English strength of a starting hand from its percentile (0 = best). */
+  function strength(p) {
+    const n = Math.max(1, Math.round(p * 100));
+    return p <= 0.5 ? `in the top ${n}% of starting hands` : `weaker than about ${n}% of starting hands`;
+  }
   function oddsRatio(A) {
     if (!A.toCall) return '';
     const r = A.pot / A.toCall;
@@ -281,6 +286,10 @@
     } else {
       const hi = A.handInfo;
       let s = `You have **${hi.name}**${hi.madeLabel ? ' — ' + termize(hi.madeLabel) : ''}.`;
+      if (['board pair', 'two pair on board', 'trips on board'].includes(hi.madeLabel)) {
+        const hiCard = Math.max(...me.cards.map(C.rankOf));
+        s = `The board itself has the ${hi.name.toLowerCase().replace(/^pair of /, 'pair of ')} — everyone shares that. Your own cards add only a ${C.RANK_NAME[hiCard]}-high [[kicker]], so treat this as a weak hand unless you improve.`;
+      }
       if (!hi.usesHole && hand.board.length === 5) s += ' (That hand is entirely on the board — everyone shares it.)';
       out.push(s);
       if (hi.draws.length) {
@@ -288,8 +297,9 @@
         out.push(`Draws: ${hi.draws.map(termize).join(' + ')} with **${hi.outs} [[outs]]**. [[rule of 2 and 4|Rule of 2 and 4]]: ${nx}.`);
       }
     }
-    const opp = A.nOpp;
-    out.push(`Against the hands your ${opp > 1 ? opp + ' opponents' : 'opponent'} likely ${opp > 1 ? 'have' : 'has'}, you win about **${Math.round(A.equity * 100)}%** of the time ([[equity]]).${opp > 1 ? ` (With ${opp + 1} players, an even share would be ${Math.round(100 / (opp + 1))}%.)` : ''}`);
+    const opp = A.eqOpps ? A.eqOpps.length : A.nOpp;
+    if (A.eqVsRandom) out.push(`Against a random hand you’d win about **${Math.round(A.equity * 100)}%** of the time ([[equity]]). Nobody has shown strength yet — what matters is how many players are left to act behind you.`);
+    else out.push(`Against the hands ${opp > 1 ? 'the ' + opp + ' players in the pot' : 'your opponent'} likely ${opp > 1 ? 'have' : 'has'}, you win about **${Math.round(A.equity * 100)}%** of the time ([[equity]]).${opp > 1 ? ` (With ${opp + 1} players, an even share would be ${Math.round(100 / (opp + 1))}%.)` : ''}`);
     if (A.toCall > 0) out.push(`[[pot odds|Pot odds]]: call ${fc(A.toCall)} to win ${fc(A.pot + A.toCall)} total → you need at least **${Math.round(A.potOdds * 100)}%** to break even.`);
     return out;
   }
@@ -332,7 +342,7 @@
     }
     if (took === 'call') {
       if (rec === 'fold') {
-        if (hand.street === 'preflop' && A.facing && (A.facing === 'unopened' || A.facing === 'limpers') && A.pctile > (A.threshold || 0.3) * 1.6) return r('mistake', `Limping with a weak hand. From this seat, hands this weak should fold; limping invites raises and tough spots after the flop.`);
+        if (hand.street === 'preflop' && A.facing && (A.facing === 'unopened' || A.facing === 'limpers') && A.pctile > (A.threshold || 0.3) * 1.6) return r('mistake', `Limping with a weak hand (${strength(A.pctile)}). From this seat, hands this weak should fold; limping invites raises and tough spots after the flop.`);
         if (eq < need - 0.07) return r(big ? 'blunder' : 'mistake', `Calling cost ${fc(A.toCall)} but you needed ${Math.round(need * 100)}% to win and had only about ${Math.round(eq * 100)}% against their likely hands.`);
         return r('ok', 'A loose call — close to break-even. The coach prefers folding.');
       }
@@ -344,7 +354,11 @@
     }
     if (took === 'raise') {
       if (rec === 'fold') {
-        if (hand.street === 'preflop' && A.pctile > 0.45) return r(big ? 'blunder' : 'mistake', `Raising with a weak hand (about top ${Math.round(A.pctile * 100)}%). When called, you’ll usually be behind.`);
+        if (hand.street === 'preflop' && A.rec.kind === 'push-fold') {
+          if (A.effBB <= 3 || A.pctile <= (A.threshold || 0) * 1.3) return r('ok', `Close. With ${A.effBB.toFixed(1)} BB almost any hand can be shoved soon; the coach would wait one more hand with this one.`);
+          return r('mistake', `Too loose a shove. At ${A.effBB.toFixed(1)} BB from this seat, shove roughly the top ${Math.round((A.threshold || 0) * 100)}% of hands; this one is ${strength(A.pctile)}.`);
+        }
+        if (hand.street === 'preflop' && A.pctile > 0.45) return r(big ? 'blunder' : 'mistake', `Raising with a weak hand (${strength(A.pctile)}). When called, you’ll usually be behind.`);
         return r(big ? 'mistake' : 'ok', big ? `Big raise as a bluff with only ~${Math.round(eq * 100)}% equity. Risky — the coach would fold.` : 'An aggressive bluff. Occasionally OK, but the coach would fold here.');
       }
       if (rec === 'check') {

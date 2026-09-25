@@ -53,6 +53,22 @@
     renderLog();
     renderOpps();
     FS.audio.setMood(TM.onBubble(G.T) ? 'tense' : 'normal');
+    const st = FS.store.get();
+    if (!st.seenIntro) {
+      st.seenIntro = true; FS.store.save();
+      const m = modal('Welcome to the table!', `
+        <p style="margin-top:0">You’re seated at the bottom (gold frame). Everyone starts with 20,000 chips; blinds rise as you play. Survive, climb the payouts, and learn as you go.</p>
+        <ul style="line-height:1.6">
+          <li><b>Your turn:</b> the action bar lights up — <b>Fold</b>, <b>Check/Call</b>, or <b>Bet/Raise</b> (drag the slider or use the size buttons). Keys: F, C, R.</li>
+          <li><b>Coach panel</b> (right): three levels of help, from broad to specific — <span style="color:var(--purple)">Big Picture</span>, <span style="color:var(--cyan)">Table Read</span>, <span style="color:var(--gold)">Hand Coach</span>. Switch each off as you improve. The ★ badge marks the coach’s suggested button.</li>
+          <li><b>Dotted words</b> have plain-English definitions — hover or tap them.</li>
+          <li><b>Ask AI:</b> chat with the AI coach anytime (“what should I do?”, “how did I play that?”). Connect your endpoint in ⚙ Settings → AI Coach.</li>
+          <li><b>Players tab:</b> who you’re up against and how to beat them. <b>Hand Log:</b> replay and review past hands.</li>
+        </ul>
+        <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-close>Let’s play ▶</button></div>`, { onClose: () => setTimeout(loop, 150) });
+      void m;
+      return;
+    }
     setTimeout(loop, 250);
   }
   function stop() {
@@ -179,7 +195,7 @@
     const reads = {};
     for (const p of hand.inHand) if (p.seat !== G.heroSeat) reads[p.seat] = readFor(p.id);
     const rng = U.makeRng(U.hashString(G.T.seed + ':' + G.handNo + ':' + hand.street + ':' + hand.actions.length));
-    const A = FS.strategy.analyze(hand, G.heroSeat, { iterations: 2600, rng, reads });
+    const A = FS.strategy.analyze(hand, G.heroSeat, { iterations: 4000, rng, reads });
     G.heroAnalyses.push(A);
     return A;
   }
@@ -814,7 +830,7 @@
           const A = G.analysis;
           const rec = CO.recommendation({ A, T, hand, heroSeat: G.heroSeat });
           L.push(`IT IS HERO'S TURN. To call: ${A.toCall}. Hero hand: ${A.handInfo.name}${A.handInfo.madeLabel ? ' (' + A.handInfo.madeLabel + ')' : ''}${A.handInfo.draws.length ? ', draws: ' + A.handInfo.draws.join(', ') + ' (' + A.handInfo.outs + ' outs)' : ''}.`);
-          L.push(`Simulator numbers: hero equity vs estimated opponent ranges ≈ ${Math.round(A.equity * 100)}%; pot odds require ${Math.round(A.potOdds * 100)}%; effective stack ${A.effBB.toFixed(1)} BB; starting-hand tier: ${A.tier.label}.`);
+          L.push(`Simulator numbers: hero equity ${A.eqVsRandom ? 'vs one random hand (pot unopened)' : 'vs estimated ranges of players in the pot'} ≈ ${Math.round(A.equity * 100)}%; pot odds require ${Math.round(A.potOdds * 100)}%; effective stack ${A.effBB.toFixed(1)} BB; starting-hand tier: ${A.tier.label}.`);
           for (const [s, r] of Object.entries(A.ranges)) L.push(`  Estimated range for ${hand.players[s].name}: ${r.desc}.`);
           if (rec) L.push(`Built-in coach suggestion: ${rec.label} (${rec.kind}).`);
         } else if (hand.actor >= 0) L.push(`Waiting on ${hand.players[hand.actor].name} to act.`);

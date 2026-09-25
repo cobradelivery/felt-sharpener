@@ -1,0 +1,13 @@
+{
+  "name": "felt-sharpener",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Offline Texas Hold'em tournament trainer with a built-in coach and an optional AI coach.",
+  "scripts": {
+    "start": "python3 server/harness.py",
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "node tests/e2e.js 10 && node tests/e2e-bust.js && node tests/e2e-coach.js && node tests/audio-check.js",
+    "sync-prompt": "node tools/sync-prompt.js"
+  },
+  "license": "UNLICENSED"
+}

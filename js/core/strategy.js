@@ -155,8 +155,16 @@
     };
     A.ranges = {};
     for (const o of opps) A.ranges[o.seat] = estimateRange(hand, o.seat, opts.reads && opts.reads[o.seat]);
-    // equity vs estimated ranges
-    const samplers = opps.map((o) => A.ranges[o.seat].sampler);
+    // Equity vs estimated ranges. Preflop, count only opponents who have voluntarily put chips in
+    // (players still to act usually fold); in an unopened pot, measure against one random hand.
+    let eqOpps = opps;
+    if (hand.street === 'preflop') {
+      const vol = new Set(hand.actions.filter((a) => a.street === 'preflop' && (a.type === 'raise' || a.type === 'call')).map((a) => a.seat));
+      eqOpps = opps.filter((o) => vol.has(o.seat));
+    }
+    A.eqVsRandom = eqOpps.length === 0;
+    A.eqOpps = eqOpps.map((o) => o.seat);
+    const samplers = A.eqVsRandom ? [null] : eqOpps.map((o) => A.ranges[o.seat].sampler);
     const eqIters = hand.street === 'preflop' ? Math.round(iters * 0.6) : iters;
     const eq = C.equity(me.cards, hand.board, samplers, eqIters, rng);
     A.equity = eq.equity;

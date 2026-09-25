@@ -16,7 +16,7 @@ const OUT = process.argv[3] || null;
   await page.evaluate(() => { localStorage.clear(); });
   await page.reload();
   // speed up
-  await page.evaluate(() => { const s = FS.store.get().settings; s.speed = 'turbo'; s.confirmAllIn = false; FS.store.save(true); });
+  await page.evaluate(() => { FS.store.get().seenIntro = true; const s = FS.store.get().settings; s.speed = 'turbo'; s.confirmAllIn = false; FS.store.save(true); });
   const shot = async (name) => { if (OUT) await page.screenshot({ path: path.join(OUT, name + '.png') }); };
   await page.click('#press-start');
   await page.waitForSelector('.menu-item');

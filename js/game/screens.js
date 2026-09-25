@@ -297,7 +297,7 @@
           <div><h3>${U.esc(c.name)}</h3><div class="nick">“${U.esc(c.nick)}”</div><div class="from">${U.esc(c.from)}</div><span class="sty" style="display:inline-block;font-size:10px;text-transform:uppercase;padding:1px 6px;border-radius:6px;background:rgba(82,227,255,.18);color:var(--cyan);margin-top:3px">${st.label}</span></div></div>
           <p>${U.esc(c.bio)}</p><p><i>“${U.esc(c.quip)}”</i></p>
           <p class="muted" style="font-size:12px"><b>How they play:</b> ${U.esc(st.plain)}<br><b>How to beat them:</b> ${U.esc(st.exploit)}</p>
-          <div class="rec">Tournaments with you: ${o.tourneys} · Wins: ${o.wins} · Best: ${o.bestFinish ? U.ordinal(o.bestFinish) : '—'}<br>Hands vs you: ${o.handsVsHero} · Plays ${vpip} of hands<br>Your net vs them: ${o.heroNet >= 0 ? '+' : ''}${fc(o.heroNet)} · KOs: you ${o.heroKnockedOut} / them ${o.knockedOutHero}</div></div>`;
+          <div class="rec">${!o.tourneys && !o.handsVsHero ? 'You haven’t played against them yet.' : `Tournaments with you: ${o.tourneys} · Wins: ${o.wins} · Best: ${o.bestFinish ? U.ordinal(o.bestFinish) : '—'}<br>Hands vs you: ${o.handsVsHero} · Plays ${vpip} of hands<br>Your net vs them: ${o.heroNet >= 0 ? '+' : ''}${fc(o.heroNet)} · KOs: you ${o.heroKnockedOut} / them ${o.knockedOutHero}`}</div></div>`;
       }).join('');
     }, 30);
   }

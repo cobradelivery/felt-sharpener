@@ -159,9 +159,7 @@
     if (!hand) { el.innerHTML = ''; return; }
     const collected = hand.potBeforeBets();
     const total = hand.pot();
-    el.innerHTML = (collected ? chipsHTML(collected, 4) : '') +
-      `<div class="pot-label">POT ${U.fmtChips(collected)}</div>` +
-      (total !== collected ? `<div class="pot-label sub">Total ${U.fmtChips(total)}</div>` : '');
+    el.innerHTML = (collected ? chipsHTML(collected, 4) : '') + `<div class="pot-label" title="Everything in the middle, including this round’s bets">POT ${U.fmtChips(total)}</div>`;
   }
 
   function setActing(seat) {
