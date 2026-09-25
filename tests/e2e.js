@@ -78,7 +78,15 @@ const OUT = process.argv[3] || null;
   const hero = await page.evaluate(() => ({ stack: FS.tournament.hero(FS.game.G.T).stack, grades: FS.game.G.meta.grades, level: FS.game.G.T.level }));
   console.log(`played ${played} hands, ${decisions} decisions in ${((Date.now() - t0) / 1000).toFixed(0)}s; hero`, JSON.stringify(hero));
   console.log('context chars:', ctx.length);
-  // Pause/quit/resume path
+  // Pause/quit/resume path (only if the hero is still in; a bust goes to the results screen)
+  if (await page.evaluate(() => FS.ui.current) === 'results') {
+    await page.waitForSelector('#res-again');
+    await shot('11-results');
+    await browser.close();
+    if (errors.length) { console.error('ERRORS:\n' + errors.join('\n')); process.exit(1); }
+    console.log('E2E OK (hero busted → results screen)');
+    return;
+  }
   await page.keyboard.press('Escape');
   await page.waitForSelector('.modal');
   await page.click('.modal [data-a="quit"]');
