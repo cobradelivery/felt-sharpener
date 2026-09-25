@@ -11,7 +11,7 @@
       music: 0.45, sfx: 0.8, vox: 0.7, muted: false,
       speed: 'normal', autoAdvance: true, fourColor: false, confirmAllIn: true,
       hints: { big: true, table: true, hand: true, rec: true, feedback: true },
-      llm: { endpoint: '', apiKey: '', model: '', temperature: 0.4, mode: 'auto' },
+      llm: { endpoint: '', apiKey: '', model: '', temperature: 0.2, mode: 'auto' },
       lastSetup: { field: 27, speed: 'standard', difficulty: 'casino' },
     },
     hero: { tournaments: 0, cashes: 0, wins: 0, bestFinish: null, totalPrize: 0, totalBuyIns: 0, hands: 0, vpip: 0, pfr: 0,

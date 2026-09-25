@@ -110,3 +110,21 @@ test('endpoint normalization', () => {
   assert.ok(msgs[0].content.includes('CTX'));
   assert.strictEqual(msgs[msgs.length - 1].content, 'What now?');
 });
+
+test('hand facts for the AI coach: folded hero vs shown hands (K2 on 6-5-2-9-9)', () => {
+  const seats = [{ id: 'hero', name: 'You', stack: 5000 }, { id: 'b', name: 'Beatrice', stack: 5000 }, { id: 'w', name: 'Wendell', stack: 5000 }];
+  const h = new FS.engine.Hand({ seats, button: 2, sb: 50, bb: 100, rng: FS.util.makeRng(1) }).start();
+  const hc = { 0: 'Kc 2c', 1: 'Ad Kd', 2: 'Jh Th' };
+  for (const s of [0, 1, 2]) h.players[s].cards = C.parseCards(hc[s]);
+  const bd = C.parseCards('6h 5d 2s 9h 9s');
+  const used = [...bd, ...C.parseCards('Kc 2c Ad Kd Jh Th')];
+  const rest = C.newDeck().filter((c) => !used.includes(c));
+  h.deck = rest.slice(3).concat([bd[4], rest[2], bd[3], rest[1], bd[2], bd[1], bd[0], rest[0]]);
+  h.act(2, { type: 'call' }); h.act(0, { type: 'fold' });
+  while (!h.done) h.act(h.actor, { type: 'check' });
+  const text = FS.coach.narrate(h, 0, []);
+  assert.ok(text.includes('Beatrice holds A♦ K♦ → Pair of Nines'));
+  assert.ok(text.includes('Two Pair, Nines and Twos'));
+  assert.ok(/Two Pair, Nines and Twos BEATS the best shown hand/.test(text));
+  assert.ok(text.includes('no other ranks are on the board'));
+});
