@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body style="background:#111;margin:0;display:flex;flex-wrap:wrap;gap:4px;padding:4px">
+<script src="../js/core/util.js"></script><script src="../js/core/roster.js"></script><script src="../js/game/avatars.js"></script>
+<script>
+const all=[FS.roster.HERO].concat(FS.roster.roster).slice(+(new URLSearchParams(location.search).get("from")||0));
+for(const c of all){const d=document.createElement('div');d.style.cssText='color:#ccc;font:10px sans-serif;text-align:center;width:258px';
+const img=new Image();img.src=FS.avatars.portrait(c,c.id==='lulu'?'happy':c.id==='sal'?'grumpy':'neutral',256);img.width=256;d.appendChild(img);d.appendChild(document.createTextNode(c.name));document.body.appendChild(d);}
+</script></body></html>
