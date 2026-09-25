@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Felt Sharpener — Hold'em Tournament Trainer</title>
+<meta name="description" content="Offline Texas Hold'em tournament simulator and trainer with a built-in coach and an optional AI coach.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23c02828'/%3E%3Ccircle cx='32' cy='32' r='30' fill='none' stroke='%23fff' stroke-width='8' stroke-dasharray='10 13.5'/%3E%3Ccircle cx='32' cy='32' r='17' fill='%23fff'/%3E%3Ctext x='32' y='40' font-size='22' text-anchor='middle' font-family='Arial Black' fill='%23c02828'%3E%E2%99%A0%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLE -->
+  <section id="scr-title" class="screen active" aria-label="Title screen">
+    <canvas id="title-canvas" aria-hidden="true"></canvas>
+    <div class="title-inner">
+      <div class="logo">
+        <div class="logo-top">FELT</div>
+        <div class="logo-bottom">SHARPENER</div>
+        <div class="logo-sub">Hold'em Tournament Trainer</div>
+      </div>
+      <button class="press-start" id="press-start">PRESS START</button>
+      <nav class="main-menu hidden" id="main-menu" aria-label="Main menu"></nav>
+    </div>
+    <div class="title-footer">
+      <span>Keyboard: ↑ ↓ Enter</span><span id="title-song"></span>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section id="scr-setup" class="screen" aria-label="New tournament">
+    <div class="screen-head"><button class="btn back" data-nav="title">◀ Back</button><h1 class="chrome-title">New Tournament</h1></div>
+    <div class="setup-wrap panel" id="setup-body"></div>
+  </section>
+
+  <!-- GAME -->
+  <section id="scr-game" class="screen" aria-label="Poker table">
+    <header class="hud" id="hud"></header>
+    <main class="game-main">
+      <div class="table-col">
+        <div class="table-area" id="table-area">
+          <div class="felt-wrap"><div class="rail"></div><div class="felt" id="felt"><div class="felt-logo">FELT SHARPENER</div></div></div>
+          <div class="board" id="board"></div>
+          <div class="pot" id="pot"></div>
+          <div class="seats" id="seats"></div>
+          <div class="table-banner" id="table-banner" aria-live="polite"></div>
+          <div class="deck-spot" id="deck-spot"></div>
+        </div>
+        <div class="action-bar" id="action-bar"></div>
+      </div>
+      <aside class="sidebar" id="sidebar">
+        <div class="side-tabs" role="tablist">
+          <button class="side-tab active" data-tab="hints" role="tab">Coach</button>
+          <button class="side-tab" data-tab="chat" role="tab">Ask AI</button>
+          <button class="side-tab" data-tab="log" role="tab">Hand Log</button>
+          <button class="side-tab" data-tab="opps" role="tab">Players</button>
+        </div>
+        <div class="side-panel active" id="panel-hints"></div>
+        <div class="side-panel" id="panel-chat"></div>
+        <div class="side-panel" id="panel-log"></div>
+        <div class="side-panel" id="panel-opps"></div>
+      </aside>
+      <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle coach panel">COACH</button>
+    </main>
+  </section>
+
+  <!-- LEARN -->
+  <section id="scr-learn" class="screen scroll" aria-label="Learn">
+    <div class="screen-head"><button class="btn back" data-nav="title">◀ Back</button><h1 class="chrome-title">Learn the Game</h1></div>
+    <div class="learn-wrap" id="learn-body"></div>
+  </section>
+
+  <!-- ROSTER -->
+  <section id="scr-roster" class="screen scroll" aria-label="Player roster">
+    <div class="screen-head"><button class="btn back" data-nav="title">◀ Back</button><h1 class="chrome-title">The Regulars</h1></div>
+    <div class="roster-grid" id="roster-body"></div>
+  </section>
+
+  <!-- STATS -->
+  <section id="scr-stats" class="screen scroll" aria-label="Your stats">
+    <div class="screen-head"><button class="btn back" data-nav="title">◀ Back</button><h1 class="chrome-title">Your Progress</h1></div>
+    <div class="stats-wrap" id="stats-body"></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="scr-results" class="screen scroll" aria-label="Tournament results">
+    <div class="results-wrap" id="results-body"></div>
+  </section>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" aria-live="polite"></div>
+  <div id="tooltip" role="tooltip"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+</div>
+
+<script src="js/core/util.js"></script>
+<script src="js/core/cards.js"></script>
+<script src="js/core/preflop.js"></script>
+<script src="js/core/engine.js"></script>
+<script src="js/core/strategy.js"></script>
+<script src="js/core/roster.js"></script>
+<script src="js/core/ai.js"></script>
+<script src="js/core/tournament.js"></script>
+<script src="js/game/store.js"></script>
+<script src="js/game/audio.js"></script>
+<script src="js/game/avatars.js"></script>
+<script src="js/game/coach.js"></script>
+<script src="js/game/coach-prompt.js"></script>
+<script src="js/game/llm.js"></script>
+<script src="js/game/ui.js"></script>
+<script src="js/game/table-view.js"></script>
+<script src="js/game/controller.js"></script>
+<script src="js/game/screens.js"></script>
+<script src="js/game/learn.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
