@@ -156,7 +156,7 @@ button { font-family: inherit; color: inherit; }
 .felt::before { content: ""; position: absolute; inset: 9% 7%; border-radius: 50%; border: 2px solid rgba(255,255,255,.08); }
 .felt-logo { position: absolute; left: 50%; top: 70%; transform: translate(-50%, -50%); font-family: var(--font-head); font-style: italic; font-size: clamp(10px, 3.2cqh, 26px); letter-spacing: .15em; color: rgba(0,0,0,.22); text-shadow: 0 1px 0 rgba(255,255,255,.07); white-space: nowrap; }
 .board { position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%); display: flex; gap: clamp(3px, .8cqw, 8px); z-index: 5; }
-.board .slot { width: var(--cw); height: var(--ch); border-radius: 6px; border: 2px dashed rgba(255,255,255,.12); }
+.board .slot { width: var(--cw); height: calc(var(--cw) * 1.4); border-radius: 6px; border: 2px dashed rgba(255,255,255,.12); }
 .table-area { --cw: clamp(34px, min(6.2cqw, 10cqh), 74px); --ch: calc(var(--cw) * 1.4); --seat: clamp(40px, min(9.5cqw, 14cqh), 108px); }
 .pot { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 5; }
 .pot-label { font-family: var(--font-num); font-weight: bold; font-size: clamp(11px, 1.6cqh, 16px); padding: 3px 10px; border-radius: 999px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.2); white-space: nowrap; }
@@ -164,7 +164,7 @@ button { font-family: inherit; color: inherit; }
 .deck-spot { position: absolute; left: 50%; top: 20%; width: 1px; height: 1px; }
 
 /* cards */
-.card { position: relative; width: var(--cw); height: var(--ch); border-radius: calc(var(--cw) * .1); flex: none; user-select: none;
+.card { position: relative; width: var(--cw); height: calc(var(--cw) * 1.4); border-radius: calc(var(--cw) * .1); flex: none; user-select: none;
   background: linear-gradient(160deg, #ffffff 0%, #f3f1ea 60%, #dcd8cc 100%); color: #111; box-shadow: 0 2px 5px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.18); overflow: hidden; }
 .card .ci { position: absolute; left: 7%; top: 3%; display: flex; flex-direction: column; align-items: center; line-height: .95; font-family: var(--font-head); font-size: calc(var(--cw) * .36); }
 .card .ci .s { font-size: calc(var(--cw) * .3); }
