@@ -193,6 +193,16 @@
     modal(`${T.name} — ${TM.alive(T).length} of ${T.field} left`, body, { wide: true });
   }
 
+  /** Plain-English effect of the AI temperature setting. */
+  function tempHint(t) {
+    t = +t;
+    if (t <= 0.1) return '<b>Most precise.</b> The coach picks its most likely words every time — very consistent, literal answers that stick tightly to the game’s numbers and hand facts. Asking twice gives nearly the same reply.';
+    if (t <= 0.35) return '<b>Focused (recommended).</b> Sticks closely to the hand facts with a little natural variety in wording. Best for accurate advice and hand reviews.';
+    if (t <= 0.7) return '<b>Balanced.</b> More varied, conversational explanations. Still mostly grounded, but slightly more prone to small slips.';
+    if (t <= 1.0) return '<b>Loose.</b> Creative and chatty; answers vary a lot between asks. Noticeably more likely to misread cards or invent details — double-check its advice.';
+    return '<b>Wild.</b> Very unpredictable phrasing and reasoning. Fun, but not recommended for learning: expect made-up details and inconsistent advice.';
+  }
+
   // ---------- settings ----------
   function settings(tab) {
     const s = S();
@@ -228,7 +238,11 @@
         <div class="form-row"><label>Endpoint URL</label><input type="url" data-l="endpoint" placeholder="http://localhost:11434/v1" value="${U.esc(s.llm.endpoint)}"></div>
         <div class="form-row"><label>API key</label><input type="password" data-l="apiKey" placeholder="(leave blank for local servers)" value="${U.esc(s.llm.apiKey)}" autocomplete="off"></div>
         <div class="form-row"><label>Model</label><input type="text" data-l="model" placeholder="e.g. llama3.1:8b, qwen2.5:14b, gpt-4o-mini" value="${U.esc(s.llm.model)}"></div>
-        <div class="form-row"><label>Temperature <span id="temp-v">${s.llm.temperature}</span></label><input type="range" min="0" max="1.2" step="0.05" data-l="temperature" value="${s.llm.temperature}"></div>
+        <div class="form-row"><label>Temperature <span id="temp-v">${s.llm.temperature}</span></label><div>
+          <input type="range" min="0" max="1.2" step="0.05" data-l="temperature" value="${s.llm.temperature}" aria-describedby="temp-hint">
+          <div class="small-note" style="display:flex;justify-content:space-between"><span>0 · precise</span><span>0.6 · balanced</span><span>1.2 · creative</span></div>
+          <div class="small-note" id="temp-hint" style="margin-top:4px;color:var(--ink-dim)">${tempHint(s.llm.temperature)}</div>
+        </div></div>
         <div class="form-row"><label></label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn gold small" id="ai-test">Test connection</button><span id="ai-test-out" class="small-note"></span></div></div>
         <p class="small-note">Examples — Ollama: <code>http://localhost:11434/v1</code> · LM Studio: <code>http://localhost:1234/v1</code> · OpenAI: <code>https://api.openai.com/v1</code> · OpenRouter: <code>https://openrouter.ai/api/v1</code>.<br>
         ${FS.native && FS.native.available
@@ -263,7 +277,7 @@
     $$('[data-l]', body).forEach((inp) => (inp.oninput = inp.onchange = () => {
       const k = inp.dataset.l;
       s.llm[k] = inp.type === 'range' ? +inp.value : inp.value.trim();
-      if (k === 'temperature') $('#temp-v', body).textContent = inp.value;
+      if (k === 'temperature') { $('#temp-v', body).textContent = inp.value; $('#temp-hint', body).innerHTML = tempHint(+inp.value); }
       if (k === 'mode') FS.llm.resetHarnessCheck();
       FS.store.save();
     }));
