@@ -65,7 +65,7 @@
     try {
       r = await withTimeout(FS.native.request(url, {
         method: 'POST', headers, signal: ctl && ctl.signal, timeoutMs: 180000,
-        body: JSON.stringify({ model: cfg.model || 'gpt-4o-mini', messages: buildMessages(question, history, context), temperature: Number(cfg.temperature) || 0.4 }),
+        body: JSON.stringify({ model: cfg.model || 'gpt-4o-mini', messages: buildMessages(question, history, context), temperature: Number.isFinite(Number(cfg.temperature)) && cfg.temperature !== "" ? Number(cfg.temperature) : 0.2 }),
       }), 185000, ctl);
     } catch (e) {
       if (/too long/.test(e.message)) throw e;
