@@ -34,6 +34,9 @@ import java.util.Iterator;
 public class MainActivity extends Activity {
     private WebView web;
     private final Handler ui = new Handler(Looper.getMainLooper());
+    private static final int REQ_SAVE = 41, REQ_OPEN = 42;
+    private String pendingSaveText, pendingSaveName;
+    private android.webkit.ValueCallback<Uri[]> fileCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +65,16 @@ public class MainActivity extends Activity {
         s.setTextZoom(100); // ignore system font scaling so the table layout stays intact
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         web.setWebChromeClient(new WebChromeClient() {
+            // <input type="file"> (importing saved tournaments)
+            @Override public boolean onShowFileChooser(WebView view, android.webkit.ValueCallback<Uri[]> cb, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = cb;
+                Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("*/*");
+                try { startActivityForResult(i, REQ_OPEN); } catch (Exception e) { fileCallback = null; return false; }
+                return true;
+            }
             @Override public boolean onConsoleMessage(ConsoleMessage m) {
                 android.util.Log.d("FeltSharpener", m.message() + " @" + m.sourceId() + ":" + m.lineNumber());
                 return true;
@@ -98,6 +111,31 @@ public class MainActivity extends Activity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) hideSystemBars();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_OPEN) {
+            if (fileCallback != null) fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+            fileCallback = null;
+        } else if (requestCode == REQ_SAVE) {
+            String js;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingSaveText != null) {
+                try {
+                    OutputStream os = getContentResolver().openOutputStream(data.getData());
+                    os.write(pendingSaveText.getBytes("UTF-8"));
+                    os.close();
+                    js = "FS.native.saved(true," + JSONObject.quote(pendingSaveName) + ")";
+                } catch (Exception e) {
+                    js = "FS.native.saved(false," + JSONObject.quote("Could not save: " + e.getMessage()) + ")";
+                }
+            } else {
+                js = "FS.native.saved(false,'Not saved')";
+            }
+            pendingSaveText = null;
+            web.evaluateJavascript(js, null);
+        }
     }
 
     @Override
@@ -180,6 +218,21 @@ public class MainActivity extends Activity {
                         + (error == null ? "null" : JSONObject.quote(error)) + ")";
                 ui.post(new Runnable() { @Override public void run() { web.evaluateJavascript(js, null); } });
             } }).start();
+        }
+
+        /** Opens Android's "save to…" picker (Downloads, Drive, …) and writes the text there. */
+        @JavascriptInterface
+        public void saveFile(final String name, final String mime, final String text) {
+            ui.post(new Runnable() { @Override public void run() {
+                pendingSaveName = name;
+                pendingSaveText = text;
+                Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType(mime == null || mime.isEmpty() ? "text/plain" : mime);
+                i.putExtra(Intent.EXTRA_TITLE, name);
+                try { startActivityForResult(i, REQ_SAVE); }
+                catch (Exception e) { web.evaluateJavascript("FS.native.saved(false,'No app available to save files')", null); }
+            } });
         }
 
         @JavascriptInterface

@@ -43,6 +43,18 @@
   function onPause() { if (FS.audio && FS.audio.suspend) FS.audio.suspend(); if (FS.store) FS.store.save(true); }
   function onResume() { if (FS.audio && FS.audio.resume) FS.audio.resume(); }
 
+  /** Save a text file: browser download, or Android's "save to…" picker in the app. */
+  function saveFile(name, mime, text) {
+    if (bridge && bridge.saveFile) { bridge.saveFile(name, mime, text); return; }
+    const url = URL.createObjectURL(new Blob([text], { type: mime + ';charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    if (FS.ui) FS.ui.toast('Saved ' + name, 'gold');
+  }
+  // Called from Java after the save picker finishes
+  function saved(ok, msg) { if (FS.ui) FS.ui.toast(ok ? 'Saved ' + msg : msg || 'Not saved', ok ? 'gold' : 'red', 3500); }
+
   if (bridge) document.documentElement.classList.add('android');
-  FS.native = { available: !!bridge, request, done, back, onPause, onResume };
+  FS.native = { available: !!bridge, request, done, back, onPause, onResume, saveFile, saved };
 })(typeof window !== 'undefined' ? window : globalThis);

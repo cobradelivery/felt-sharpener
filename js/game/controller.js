@@ -329,7 +329,7 @@
       title: `${CO.prettyCards(heroP.cards)} · ${heroP.pos} · ${heroNet > 0 ? '+' : ''}${fc(heroNet)}`,
     };
     G.meta.history.push(rec);
-    if (G.meta.history.length > 40) G.meta.history = G.meta.history.slice(-40);
+    if (G.meta.history.length > 300) G.meta.history = G.meta.history.slice(-300);
     for (const g of G.grades) if (g.grade === 'mistake' || g.grade === 'blunder') G.meta.mistakes.push({ hand: G.handNo, text: g.text, rec: g.rec, took: g.took, street: g.street, cards: CO.prettyCards(heroP.cards), grade: g.grade });
     FS.store.addHand(rec);
     // Apply to tournament
@@ -436,7 +436,8 @@
       if (!o.bestFinish || p.finish < o.bestFinish) o.bestFinish = p.finish;
     }
     st.tourney = null; st.tourneyMeta = null;
-    st.lastResult = JSON.stringify({ T: { field: T.field, buyIn: T.buyIn, payouts: T.payouts, name: T.name, players: T.players.map((p) => ({ id: p.id, name: p.name, finish: p.finish, prize: p.prize || 0, style: p.style })) }, meta: G.meta });
+    const rec = FS.archive.add(FS.archive.makeRecord({ T, meta: G.meta, chat: G.chat.filter((m) => m.meta !== 'err'), startedAt: G.meta.startedAt || T.startedAt }));
+    st.lastResultId = rec.id; st.lastResult = null;
     FS.store.save(true);
     if (hero.finish === 1) { FS.audio.sfx.win(); FS.audio.vox.crowd('cheer'); }
     FS.ui.showScreen('results');
@@ -651,7 +652,8 @@
   function gradeDots(grades) {
     return (grades || []).map((g) => `<span title="${g.grade}" style="color:var(--${g.grade === 'good' ? 'good' : g.grade === 'ok' ? 'ok' : 'bad'})">●</span>`).join('');
   }
-  function reviewHand(rec) {
+  /** onAsk: what “Ask the AI coach about this hand” does (defaults to the in-game chat, or a standalone chat). */
+  function reviewHand(rec, onAsk) {
     if (!rec) return;
     const body = h(`<div>
       <div style="display:flex;gap:6px;align-items:center;--cw:44px;--ch:62px;margin-bottom:10px">${FS.ui.cardsInline(rec.cards)}<span style="width:14px"></span>${FS.ui.cardsInline(rec.board)}</div>
@@ -661,7 +663,7 @@
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="btn gold" id="rv-ask">Ask the AI coach about this hand</button></div>
     </div>`);
     const m = modal(`Hand #${rec.no} review`, body);
-    $('#rv-ask', body).onclick = () => { m.close(); openChatWith(`Review hand #${rec.no} for me: what did I do well, what was my biggest mistake, and what should I have done instead?\n\n${rec.narrative}`); };
+    $('#rv-ask', body).onclick = () => { m.close(); if (onAsk) return onAsk(rec); if (FS.ui.current !== 'game' || !G.T) return FS.archive.askAboutHand(rec); openChatWith(`Review hand #${rec.no} for me: what did I do well, what was my biggest mistake, and what should I have done instead?\n\n${rec.narrative}`); };
   }
   function renderOpps() {
     const el = $('#panel-opps');
