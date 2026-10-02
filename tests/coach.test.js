@@ -5,6 +5,7 @@ const path = require('path');
 const FS = require('./load.js')();
 require('../js/game/coach.js');
 require('../js/game/coach-prompt.js');
+require('../js/game/native.js');
 require('../js/game/llm.js');
 const C = FS.cards;
 

@@ -742,7 +742,7 @@
     const cfg = S().llm;
     const harness = await FS.llm.harnessAvailable();
     if (harness) { led.className = 'led on'; route.textContent = `AI coach via local harness${cfg.model ? ' · ' + cfg.model : ''}${cfg.endpoint ? '' : ' (endpoint from harness env or unset)'}`; }
-    else if (cfg.endpoint) { led.className = 'led on'; route.textContent = `AI coach direct · ${cfg.model || 'default model'}`; }
+    else if (cfg.endpoint) { led.className = 'led on'; route.textContent = `AI coach ${FS.native && FS.native.available ? 'connected' : 'direct'} · ${cfg.model || 'default model'}`; }
     else { led.className = 'led warn'; route.textContent = 'AI not connected — using built-in coach'; }
   }
   function mdLite(s) {

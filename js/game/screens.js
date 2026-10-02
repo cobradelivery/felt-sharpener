@@ -224,14 +224,16 @@
       </div>
       <div data-p="ai">
         <p style="margin-top:0">The AI coach answers free-form questions using any <b>OpenAI-compatible</b> chat endpoint — your own local model (Ollama, LM Studio, llama.cpp, vLLM…) or a hosted provider.</p>
-        <div class="form-row"><label>Route</label><select data-l="mode"><option value="auto">Auto (harness if available, else direct)</option><option value="harness">Local harness (server/harness.py)</option><option value="direct">Direct from browser</option></select></div>
+        <div class="form-row ${FS.native && FS.native.available ? 'hidden' : ''}"><label>Route</label><select data-l="mode"><option value="auto">Auto (harness if available, else direct)</option><option value="harness">Local harness (server/harness.py)</option><option value="direct">Direct from browser</option></select></div>
         <div class="form-row"><label>Endpoint URL</label><input type="url" data-l="endpoint" placeholder="http://localhost:11434/v1" value="${U.esc(s.llm.endpoint)}"></div>
         <div class="form-row"><label>API key</label><input type="password" data-l="apiKey" placeholder="(leave blank for local servers)" value="${U.esc(s.llm.apiKey)}" autocomplete="off"></div>
         <div class="form-row"><label>Model</label><input type="text" data-l="model" placeholder="e.g. llama3.1:8b, qwen2.5:14b, gpt-4o-mini" value="${U.esc(s.llm.model)}"></div>
         <div class="form-row"><label>Temperature <span id="temp-v">${s.llm.temperature}</span></label><input type="range" min="0" max="1.2" step="0.05" data-l="temperature" value="${s.llm.temperature}"></div>
         <div class="form-row"><label></label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn gold small" id="ai-test">Test connection</button><span id="ai-test-out" class="small-note"></span></div></div>
         <p class="small-note">Examples — Ollama: <code>http://localhost:11434/v1</code> · LM Studio: <code>http://localhost:1234/v1</code> · OpenAI: <code>https://api.openai.com/v1</code> · OpenRouter: <code>https://openrouter.ai/api/v1</code>.<br>
-        Opening <code>index.html</code> directly? The browser calls the endpoint itself, so it must allow CORS (Ollama: set <code>OLLAMA_ORIGINS=*</code>; LM Studio: enable CORS). Running <code>python3 server/harness.py</code> avoids CORS entirely. Your key is stored only in this browser.</p>
+        ${FS.native && FS.native.available
+          ? 'On your phone, use your computer\'s <b>LAN IP</b> instead of <code>localhost</code> (e.g. <code>http://192.168.1.20:11434/v1</code>), on the same Wi-Fi. Ollama: set <code>OLLAMA_HOST=0.0.0.0</code> so it accepts connections from other devices; LM Studio: enable “Serve on local network”. Hosted providers (OpenAI, OpenRouter…) work from anywhere. Your key is stored only on this device.'
+          : `Opening <code>index.html</code> directly? The browser calls the endpoint itself, so it must allow CORS (Ollama: set <code>OLLAMA_ORIGINS=*</code>; LM Studio: enable CORS). Running <code>python3 server/harness.py</code> avoids CORS entirely. Your key is stored only in this browser.`}</p>
         <details><summary class="small-note" style="cursor:pointer">View the coach prompt that wraps your questions</summary><pre class="prompt">${U.esc(FS.COACH_PROMPT || '')}</pre></details>
       </div>
       <div data-p="data">

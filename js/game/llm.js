@@ -60,21 +60,25 @@
     if (!url) throw new Error('NOT_CONFIGURED');
     const headers = { 'Content-Type': 'application/json' };
     if (cfg.apiKey) headers.Authorization = 'Bearer ' + cfg.apiKey;
+    const native = !!(FS.native && FS.native.available);
     let r;
     try {
-      r = await withTimeout(fetch(url, {
-        method: 'POST', headers, signal: ctl && ctl.signal,
+      r = await withTimeout(FS.native.request(url, {
+        method: 'POST', headers, signal: ctl && ctl.signal, timeoutMs: 180000,
         body: JSON.stringify({ model: cfg.model || 'gpt-4o-mini', messages: buildMessages(question, history, context), temperature: Number(cfg.temperature) || 0.4 }),
-      }), 180000, ctl);
+      }), 185000, ctl);
     } catch (e) {
       if (/too long/.test(e.message)) throw e;
-      throw new Error('Could not reach ' + url + '. If it is a local server, make sure it is running and allows browser (CORS) requests — or start the game with the harness (see README), which avoids CORS entirely.');
+      throw new Error('Could not reach ' + url + '. ' + (native
+        ? 'Make sure the server is running and reachable from your phone (same Wi-Fi; use your computer\'s LAN IP, not localhost; Ollama needs OLLAMA_HOST=0.0.0.0).' + (e.message ? ' (' + e.message + ')' : '')
+        : 'If it is a local server, make sure it is running and allows browser (CORS) requests — or start the game with the harness (see README), which avoids CORS entirely.'));
     }
-    const j = await r.json().catch(() => null);
-    if (!r.ok) throw new Error('The AI endpoint returned ' + r.status + (j && j.error ? ': ' + (j.error.message || JSON.stringify(j.error)) : ''));
+    let j = null;
+    try { j = JSON.parse(r.text); } catch (e) { /* non-JSON */ }
+    if (r.status < 200 || r.status >= 300) throw new Error('The AI endpoint returned ' + r.status + (j && j.error ? ': ' + (j.error.message || JSON.stringify(j.error)) : ''));
     const reply = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
     if (!reply) throw new Error('Unexpected response from the AI endpoint.');
-    return { reply, route: 'direct', model: j.model || cfg.model };
+    return { reply, route: native ? 'app' : 'direct', model: j.model || cfg.model };
   }
 
   function isConfigured(cfg) { return !!(cfg && cfg.endpoint) || harnessState === true; }

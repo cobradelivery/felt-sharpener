@@ -421,3 +421,46 @@ pre.prompt { white-space: pre-wrap; font-size: 11.5px; background: rgba(0,0,0,.3
   .action-bar { min-height: 80px; gap: 6px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* ---------- phones in landscape (short screens) ---------- */
+@media (max-height: 520px) {
+  .hud { min-height: 38px; padding: 3px 8px; gap: 4px; }
+  .hud-logo { font-size: 13px; }
+  .hud-stat { padding: 0 7px; }
+  .hud-stat b { font-size: 12px; }
+  .hud-stat span { font-size: 8.5px; }
+  .hud-stat.opt { display: none; }
+  .hud .btn { padding: 5px 8px; font-size: 11px; }
+  .action-bar { min-height: 0; padding: 5px 10px; gap: 8px; flex-wrap: nowrap; }
+  .act-btn { min-width: 96px; padding: 7px 10px; font-size: 14px; border-radius: 10px; }
+  .act-btn small { font-size: 11.5px; }
+  .act-btn.recommended::after { top: -8px; font-size: 8px; }
+  .sizer { gap: 4px; min-width: 0; }
+  .sizer input[type=number] { width: 82px; padding: 4px 6px; font-size: 13px; }
+  .presets .btn { padding: 3px 7px; font-size: 10.5px; }
+  .table-area { --seat: clamp(40px, min(9cqw, 17cqh), 72px); }
+  .felt-wrap { width: min(70cqw, 200cqh); height: min(58cqh, 36cqw); top: 49%; }
+  .nameplate { padding: 2px 4px 3px; margin-top: -8px; }
+  .nameplate .nm { font-size: 10px; max-width: calc(var(--seat) * 1.6); }
+  .nameplate .stk { font-size: 10px; }
+  .nameplate .tag { display: none; }
+  .seat .pos-badge { font-size: 8px; }
+  .bubble { font-size: 10.5px; padding: 3px 8px; }
+  .banner { font-size: 15px; padding: 5px 16px; }
+  .side-tab { padding: 8px 2px; font-size: 11px; }
+  .tier-body { font-size: 12.5px; }
+  .title-inner { gap: 12px; max-height: 100vh; overflow-y: auto; padding: 10px 16px 24px; justify-content: flex-start; }
+  .logo-top { font-size: 46px; } .logo-bottom { font-size: 34px; } .logo-sub { font-size: 11px; margin-top: 4px; }
+  .main-menu { width: min(560px, 90vw); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .menu-item { padding: 8px 14px 8px 38px; font-size: 14px; }
+  .menu-item::before { left: 13px; width: 12px; height: 12px; margin-top: -6px; }
+  .menu-item small { font-size: 10.5px; }
+  .title-footer { display: none; }
+  .screen-head { padding: 8px 14px 2px; }
+  .modal { max-height: 96vh; }
+  .modal-head { padding: 8px 12px; }
+  .modal-body { padding: 10px 12px 12px; }
+}
+/* touch devices: no keyboard hints */
+@media (hover: none) { .act-btn .key { display: none; } }
+.android .title-footer span:first-child { display: none; }
