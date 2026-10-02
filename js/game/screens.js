@@ -193,6 +193,16 @@
     modal(`${T.name} — ${TM.alive(T).length} of ${T.field} left`, body, { wide: true });
   }
 
+  /** Plain-English effect of the AI temperature setting. */
+  function tempHint(t) {
+    t = +t;
+    if (t <= 0.1) return '<b>Most precise.</b> The coach picks its most likely words every time — very consistent, literal answers that stick tightly to the game’s numbers and hand facts. Asking twice gives nearly the same reply.';
+    if (t <= 0.35) return '<b>Focused (recommended).</b> Sticks closely to the hand facts with a little natural variety in wording. Best for accurate advice and hand reviews.';
+    if (t <= 0.7) return '<b>Balanced.</b> More varied, conversational explanations. Still mostly grounded, but slightly more prone to small slips.';
+    if (t <= 1.0) return '<b>Loose.</b> Creative and chatty; answers vary a lot between asks. Noticeably more likely to misread cards or invent details — double-check its advice.';
+    return '<b>Wild.</b> Very unpredictable phrasing and reasoning. Fun, but not recommended for learning: expect made-up details and inconsistent advice.';
+  }
+
   // ---------- settings ----------
   function settings(tab) {
     const s = S();
@@ -224,14 +234,20 @@
       </div>
       <div data-p="ai">
         <p style="margin-top:0">The AI coach answers free-form questions using any <b>OpenAI-compatible</b> chat endpoint — your own local model (Ollama, LM Studio, llama.cpp, vLLM…) or a hosted provider.</p>
-        <div class="form-row"><label>Route</label><select data-l="mode"><option value="auto">Auto (harness if available, else direct)</option><option value="harness">Local harness (server/harness.py)</option><option value="direct">Direct from browser</option></select></div>
+        <div class="form-row ${FS.native && FS.native.available ? 'hidden' : ''}"><label>Route</label><select data-l="mode"><option value="auto">Auto (harness if available, else direct)</option><option value="harness">Local harness (server/harness.py)</option><option value="direct">Direct from browser</option></select></div>
         <div class="form-row"><label>Endpoint URL</label><input type="url" data-l="endpoint" placeholder="http://localhost:11434/v1" value="${U.esc(s.llm.endpoint)}"></div>
         <div class="form-row"><label>API key</label><input type="password" data-l="apiKey" placeholder="(leave blank for local servers)" value="${U.esc(s.llm.apiKey)}" autocomplete="off"></div>
         <div class="form-row"><label>Model</label><input type="text" data-l="model" placeholder="e.g. llama3.1:8b, qwen2.5:14b, gpt-4o-mini" value="${U.esc(s.llm.model)}"></div>
-        <div class="form-row"><label>Temperature <span id="temp-v">${s.llm.temperature}</span></label><input type="range" min="0" max="1.2" step="0.05" data-l="temperature" value="${s.llm.temperature}"></div>
+        <div class="form-row"><label>Temperature <span id="temp-v">${s.llm.temperature}</span></label><div>
+          <input type="range" min="0" max="1.2" step="0.05" data-l="temperature" value="${s.llm.temperature}" aria-describedby="temp-hint">
+          <div class="small-note" style="display:flex;justify-content:space-between"><span>0 · precise</span><span>0.6 · balanced</span><span>1.2 · creative</span></div>
+          <div class="small-note" id="temp-hint" style="margin-top:4px;color:var(--ink-dim)">${tempHint(s.llm.temperature)}</div>
+        </div></div>
         <div class="form-row"><label></label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn gold small" id="ai-test">Test connection</button><span id="ai-test-out" class="small-note"></span></div></div>
         <p class="small-note">Examples — Ollama: <code>http://localhost:11434/v1</code> · LM Studio: <code>http://localhost:1234/v1</code> · OpenAI: <code>https://api.openai.com/v1</code> · OpenRouter: <code>https://openrouter.ai/api/v1</code>.<br>
-        Opening <code>index.html</code> directly? The browser calls the endpoint itself, so it must allow CORS (Ollama: set <code>OLLAMA_ORIGINS=*</code>; LM Studio: enable CORS). Running <code>python3 server/harness.py</code> avoids CORS entirely. Your key is stored only in this browser.</p>
+        ${FS.native && FS.native.available
+          ? 'On your phone, use your computer\'s <b>LAN IP</b> instead of <code>localhost</code> (e.g. <code>http://192.168.1.20:11434/v1</code>), on the same Wi-Fi. Ollama: set <code>OLLAMA_HOST=0.0.0.0</code> so it accepts connections from other devices; LM Studio: enable “Serve on local network”. Hosted providers (OpenAI, OpenRouter…) work from anywhere. Your key is stored only on this device.'
+          : `Opening <code>index.html</code> directly? The browser calls the endpoint itself, so it must allow CORS (Ollama: set <code>OLLAMA_ORIGINS=*</code>; LM Studio: enable CORS). Running <code>python3 server/harness.py</code> avoids CORS entirely. Your key is stored only in this browser.`}</p>
         <details><summary class="small-note" style="cursor:pointer">View the coach prompt that wraps your questions</summary><pre class="prompt">${U.esc(FS.COACH_PROMPT || '')}</pre></details>
       </div>
       <div data-p="data">
@@ -261,7 +277,7 @@
     $$('[data-l]', body).forEach((inp) => (inp.oninput = inp.onchange = () => {
       const k = inp.dataset.l;
       s.llm[k] = inp.type === 'range' ? +inp.value : inp.value.trim();
-      if (k === 'temperature') $('#temp-v', body).textContent = inp.value;
+      if (k === 'temperature') { $('#temp-v', body).textContent = inp.value; $('#temp-hint', body).innerHTML = tempHint(+inp.value); }
       if (k === 'mode') FS.llm.resetHarnessCheck();
       FS.store.save();
     }));
@@ -328,65 +344,28 @@
         <div class="gradebar">${seg(g.good, 'var(--good)')}${seg(g.ok, 'var(--ok)')}${seg(g.mistake, '#ff8a5b')}${seg(g.blunder, 'var(--bad)')}</div>
         <div class="legend"><span><i style="background:var(--good)"></i>Good ${g.good || 0}</span><span><i style="background:var(--ok)"></i>OK ${g.ok || 0}</span><span><i style="background:#ff8a5b"></i>Mistake ${g.mistake || 0}</span><span><i style="background:var(--bad)"></i>Big mistake ${g.blunder || 0}</span></div>
       </div>
+      ${FS.archive.listHTML()}
       <div class="section panel"><h2>Recent tournaments</h2>
         ${hist.length ? `<div class="bars">${hist.map((r) => { const pctile = 1 - (r.finish - 1) / Math.max(1, r.field - 1); return `<div class="bar" style="height:${Math.max(6, pctile * 100)}%;${r.prize ? 'background:linear-gradient(180deg,var(--gold),#b86d00)' : ''}" title="${U.ordinal(r.finish)} of ${r.field}${r.prize ? ' · ' + U.fmtMoney(r.prize) : ''}"><span>${r.finish}</span></div>`; }).join('')}</div><p class="small-note">Bar height = how deep you went (gold = cashed). Number = finishing place.</p>` : '<p class="muted">No tournaments finished yet.</p>'}
       </div>
       <div class="section panel"><h2>Recent hands</h2>
         ${st.hands.length ? st.hands.slice().reverse().slice(0, 30).map((r, i) => `<div class="hist-item" data-i="${i}"><span>${new Date(r.t).toLocaleDateString()} · #${r.no} ${U.esc(r.title)}</span><span>${(r.grades || []).map((x) => `<span style="color:var(--${x.grade === 'good' ? 'good' : x.grade === 'ok' ? 'ok' : 'bad'})">●</span>`).join('')}</span></div>`).join('') : '<p class="muted">Play some hands!</p>'}
       </div>`;
+    FS.archive.bindList(body, renderStats);
     const recent = st.hands.slice().reverse().slice(0, 30);
-    $$('.hist-item', body).forEach((it) => (it.onclick = () => FS.game.reviewHand(recent[+it.dataset.i])));
+    $$('.hist-item[data-i]', body).forEach((it) => (it.onclick = () => FS.game.reviewHand(recent[+it.dataset.i])));
   }
 
   // ---------- results ----------
-  function renderResults() {
+  /** arg: undefined (the tournament just finished) or { id, archived } from Saved tournaments. */
+  function renderResults(arg) {
     const st = FS.store.get();
+    FS.archive.load();
+    const rec = FS.archive.get((arg && arg.id) || st.lastResultId);
     const body = $('#results-body');
-    if (!st.lastResult) { body.innerHTML = '<p>No results.</p>'; return; }
-    const { T, meta } = JSON.parse(st.lastResult);
-    const hero = T.players.find((p) => p.id === 'hero');
-    const g = meta.grades, tot = (g.good || 0) + (g.ok || 0) + (g.mistake || 0) + (g.blunder || 0);
-    const acc = tot ? Math.round(((g.good || 0) + (g.ok || 0) * 0.5) / tot * 100) : null;
-    const top = T.players.slice().sort((a, b) => a.finish - b.finish).slice(0, 10);
-    const headline = hero.finish === 1 ? 'CHAMPION!' : hero.prize ? 'In the money!' : hero.finish <= T.payouts.length + 2 ? 'So close!' : 'Good game';
-    body.innerHTML = `
-      <div class="results-hero panel"><div class="chrome-title" style="font-size:26px">${headline}</div>
-        <div class="place">${U.ordinal(hero.finish)}</div><div class="muted">of ${T.field} players</div>
-        <div class="prize">${hero.prize ? 'You won <b style="color:var(--gold)">' + U.fmtMoney(hero.prize) + '</b>' : 'No cash this time — ' + (T.payouts.length) + ' places paid.'}</div></div>
-      <div class="kpis">
-        <div class="kpi panel"><b>${meta.hands}</b><span>Hands dealt</span></div>
-        <div class="kpi panel"><b>${meta.hands ? Math.round(meta.vpip / meta.hands * 100) : 0}%</b><span>Hands played</span></div>
-        <div class="kpi panel"><b>${meta.hands ? Math.round(meta.pfr / meta.hands * 100) : 0}%</b><span>Raised preflop</span></div>
-        <div class="kpi panel"><b>${acc == null ? '—' : acc + '%'}</b><span>Decision score</span></div>
-        <div class="kpi panel"><b>+${fc(meta.biggestWin)}</b><span>Biggest pot won</span></div>
-      </div>
-      <div class="section panel"><h2>Coach’s notes: mistakes to learn from</h2>
-        ${meta.mistakes.length ? meta.mistakes.slice(-6).reverse().map((x) => `<div class="mistake-item"><b>Hand #${x.hand}</b> (${U.esc(x.cards)}, ${x.street}) — you ${x.took}, coach suggested ${U.esc(x.rec)}.<br>${FS.coach.glossaryHTML(x.text)}</div>`).join('') : '<p>No flagged mistakes. Nice discipline!</p>'}
-      </div>
-      <div class="section panel"><h2>Final standings</h2><table class="grid"><tr><th>Place</th><th>Player</th><th>Style</th><th class="num">Prize</th></tr>
-        ${top.map((p) => `<tr class="${p.id === 'hero' ? 'me' : ''}"><td>${U.ordinal(p.finish)}</td><td>${U.esc(p.id === 'hero' ? S().heroName || 'You' : p.name)}</td><td>${p.id === 'hero' ? '' : FS.roster.STYLES[p.style].label}</td><td class="num">${p.prize ? U.fmtMoney(p.prize) : ''}</td></tr>`).join('')}</table></div>
-      <div class="section panel" id="res-ai"><h2>AI coach review</h2><p class="muted">Get a personalised review of your tournament from the AI coach.</p><button class="btn gold" id="res-ask">Review my tournament</button><div id="res-ai-out" style="margin-top:10px"></div></div>
-      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px"><button class="btn gold" id="res-again" style="padding:12px 24px">Play again ▶</button><button class="btn" id="res-stats">Your progress</button><button class="btn" id="res-title">Title screen</button></div>`;
-    $('#res-again').onclick = () => { const ls = S().lastSetup; FS.game.start({ field: T.field, speed: ls.speed, difficulty: ls.difficulty }); };
-    $('#res-stats').onclick = () => FS.ui.showScreen('stats');
-    $('#res-title').onclick = () => FS.ui.showScreen('title');
-    $('#res-ask').onclick = async () => {
-      const out = $('#res-ai-out');
-      out.innerHTML = '<span class="spinner" style="display:inline-block"></span> The coach is reviewing your tournament…';
-      const ctx = [
-        `TOURNAMENT RESULT: finished ${U.ordinal(hero.finish)} of ${T.field}${hero.prize ? ', won ' + U.fmtMoney(hero.prize) : ', no cash'}. ${T.payouts.length} places paid.`,
-        `Hands dealt ${meta.hands}; played ${meta.hands ? Math.round(meta.vpip / meta.hands * 100) : 0}%; raised preflop ${meta.hands ? Math.round(meta.pfr / meta.hands * 100) : 0}%.`,
-        `Decision grades: ${g.good || 0} good, ${g.ok || 0} ok, ${g.mistake || 0} mistakes, ${g.blunder || 0} big mistakes.`,
-        'Flagged mistakes:', ...meta.mistakes.slice(-8).map((x) => `- hand #${x.hand} (${x.cards}, ${x.street}): took ${x.took}, suggested ${x.rec}. ${x.text}`),
-        'Last hands:', ...meta.history.slice(-3).map((r) => r.narrative),
-      ].join('\n');
-      try {
-        const r = await FS.llm.ask('Review my tournament. Give me: 1) what I did well, 2) my two biggest leaks with concrete examples from the hands, 3) three specific things to practice before my live tournament.', [], ctx, S().llm);
-        out.innerHTML = `<div class="msg bot" style="max-width:100%"><span class="who">AI COACH</span>${U.esc(r.reply).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')}</div>`;
-      } catch (e) {
-        out.innerHTML = `<div class="msg bot err" style="max-width:100%">${U.esc(e.message === 'NOT_CONFIGURED' ? 'Connect an AI endpoint in Settings → AI Coach to get a written review. The Coach’s notes above are from the built-in coach.' : e.message)}</div>`;
-      }
-    };
+    if (!rec) { body.innerHTML = '<p>No results.</p>'; return; }
+    FS.archive.renderReport(body, rec, { archived: !!(arg && arg.archived) });
+    $('#scr-results').scrollTop = 0;
   }
 
   function openSideTab(name) {

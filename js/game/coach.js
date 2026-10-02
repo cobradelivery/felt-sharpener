@@ -402,8 +402,42 @@
       if (!R.uncontested) for (const s of R.shown) lines.push(`${nameOf(+s)} shows ${prettyCards(hand.players[s].cards)} (${R.handNames[s]})`);
       for (const [s, amt] of Object.entries(R.winnings)) lines.push(`${nameOf(+s)} wins ${fc(amt)}${R.uncontested ? ' (everyone else folded)' : ''}`);
     }
+    const facts = handFacts(hand, heroSeat, nameOf);
+    if (facts.length) lines.push('COMPUTED HAND FACTS (exact, from the game engine — trust these over your own reading of the cards):', ...facts.map((f) => '  • ' + f));
     return lines.join('\n');
   }
 
-  FS.coach = { GLOSSARY, glossaryHTML, bigPicture, tableRead, handCoach, recommendation, grade, narrate, describeAction, verb, handName, prettyCards, boardTexture, recLabel, POS_PLAIN };
+  /** Exact hand evaluations so the AI coach never has to rank poker hands itself. */
+  function handFacts(hand, heroSeat, nameOf) {
+    const out = [];
+    const board = hand.board;
+    if (board.length < 3) return out;
+    const R = hand.results;
+    const describe = (cards) => {
+      const all = cards.concat(board);
+      const score = C.evaluate(all);
+      return { score, text: `${C.describeScore(score)} (best five: ${prettyCards(C.bestFive(all))})` };
+    };
+    out.push(`Board: ${prettyCards(board)}. Ranks on the board: ${[...new Set(board.map((c) => C.RANK_NAME[C.rankOf(c)]))].join(', ')} — no other ranks are on the board.`);
+    const shown = R && !R.uncontested ? R.shown.map(Number) : [];
+    let bestShown = null;
+    for (const seat of shown) {
+      const d = describe(hand.players[seat].cards);
+      out.push(`${nameOf(seat)} holds ${prettyCards(hand.players[seat].cards)} → ${d.text}.`);
+      if (!bestShown || d.score > bestShown.score) bestShown = { seat, score: d.score, text: d.text };
+    }
+    const hero = heroSeat != null && hand.players[heroSeat];
+    if (hero && hero.cards.length && !shown.includes(heroSeat)) {
+      const d = describe(hero.cards);
+      const scope = board.length === 5 ? 'on this board' : `on the board so far (${board.length} cards)`;
+      out.push(`${hero.folded ? 'Hero folded, but hero’s cards ' : 'Hero’s cards '}${prettyCards(hero.cards)} make ${d.text} ${scope}.`);
+      if (hero.folded && board.length === 5 && bestShown) {
+        const cmp = d.score > bestShown.score ? 'BEATS' : d.score === bestShown.score ? 'TIES with' : 'LOSES to';
+        out.push(`If hero had stayed in to showdown: hero’s ${C.describeScore(d.score)} ${cmp} the best shown hand, ${nameOf(bestShown.seat)}’s ${C.describeScore(bestShown.score)}. (Only hands that were shown are known; the betting would also have been different.)`);
+      }
+    }
+    return out;
+  }
+
+  FS.coach = { handFacts, GLOSSARY, glossaryHTML, bigPicture, tableRead, handCoach, recommendation, grade, narrate, describeAction, verb, handName, prettyCards, boardTexture, recLabel, POS_PLAIN };
 })(typeof window !== 'undefined' ? window : globalThis);

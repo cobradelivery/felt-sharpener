@@ -26,6 +26,39 @@ and nothing else.
 
 Then: **Press Start → New Tournament → Shuffle Up & Deal.**
 
+## Android (Pixel and other phones)
+
+A ready-to-install APK lives at **`android/felt-sharpener.apk`**. It needs Android 8.0 or newer.
+
+1. On your phone, open this repo on GitHub, go to `android/felt-sharpener.apk` and tap **Download** (the
+   "View raw" link). Or copy the file to the phone over USB.
+2. Open the downloaded file. Android asks you to allow installs from that app (Chrome or Files): tap
+   **Settings → Allow from this source**, go back, and tap **Install**.
+3. If Play Protect warns about an unknown app, tap **More details → Install anyway**. That warning
+   appears for any app that isn't from the Play Store.
+
+The app plays full-screen in landscape, works offline, and saves your progress on the phone. The
+phone's **Back** button closes dialogs, opens the pause menu during a hand, and leaves the app from
+the title screen.
+
+**AI coach on the phone:** in Settings → AI Coach, use your computer's **LAN IP** instead of
+`localhost` (e.g. `http://192.168.1.20:11434/v1`), with the phone on the same Wi-Fi. Ollama must listen
+on the network (`OLLAMA_HOST=0.0.0.0`); in LM Studio, enable "Serve on local network". Hosted providers
+(OpenAI, OpenRouter…) work from anywhere. The app sends these requests natively, so no CORS setup is
+needed.
+
+**Rebuilding the APK** (Ubuntu/Debian, no Android Studio needed):
+
+```sh
+sudo apt-get install aapt apksigner zipalign dalvik-exchange android-sdk-platform-23 default-jdk
+android/build.sh
+```
+
+The script bundles `index.html`, `css/` and `js/` into the app unchanged, so any change to the game is
+picked up on the next build. It signs with `android/felt-sharpener.keystore` (password
+`feltsharpener`). Keep using that key so new builds install over the old one without losing your
+progress.
+
 ## What's inside
 
 | | |
@@ -92,6 +125,7 @@ js/core/                pure game logic (also runs under Node for tests)
   tournament.js         multi-table tournament manager
 js/game/                browser UI: table view, controller, coach text, audio, avatars, screens, lessons
 server/harness.py       local server + AI-coach proxy (Python standard library only)
+android/                Android app shell (WebView + native HTTP bridge), build script, APK
 server/coach_prompt.md  the coach's system prompt
 tests/                  unit, integration and browser end-to-end tests
 tools/                  dev helpers (preflop table generator, prompt sync, bot simulator)

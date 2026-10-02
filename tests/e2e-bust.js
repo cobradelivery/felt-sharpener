@@ -36,7 +36,7 @@ const OUT = process.argv[2] || null;
   const txt = await p.textContent('#results-body');
   if (!/of 9 players/.test(txt)) throw new Error('results missing: ' + txt.slice(0, 200));
   if (OUT) await p.screenshot({ path: path.join(OUT, '20-results.png'), fullPage: true });
-  await p.click('#res-ask');
+  await p.click('#rep-convo .convo-start .btn');
   await p.waitForTimeout(300);
   await p.click('#res-stats');
   await p.waitForSelector('#scr-stats.active');

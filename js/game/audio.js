@@ -493,5 +493,8 @@
   /** Analyser on the master output (used by tests / level checks). */
   function tap() { if (!init()) return null; const a = ctx.createAnalyser(); a.fftSize = 2048; master.connect(a); return a; }
 
-  FS.audio = { init, tap, setVolumes, settings, startMusic, stopMusic, nextSong, setMood, sfx, vox, SONGS, get playing() { return music.playing; }, get songName() { return SONGS[music.songIdx].name; } };
+  function suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); }
+  function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+
+  FS.audio = { init, tap, suspend, resume, setVolumes, settings, startMusic, stopMusic, nextSong, setMood, sfx, vox, SONGS, get playing() { return music.playing; }, get songName() { return SONGS[music.songIdx].name; } };
 })(typeof window !== 'undefined' ? window : globalThis);
