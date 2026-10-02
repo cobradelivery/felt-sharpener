@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 android/build/
 android/.icon.html
+android/*.idsig
