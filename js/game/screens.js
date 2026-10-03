@@ -72,6 +72,7 @@
     items.push({ id: 'new', label: 'New Tournament', sub: 'Multi-table tournament with the regulars', act: () => FS.ui.showScreen('setup') });
     items.push({ id: 'sng', label: 'Quick Sit & Go', sub: '9 players, one table, turbo blinds', act: () => { if (confirmOverwrite()) FS.game.start({ field: 9, speed: 'turbo', difficulty: S().lastSetup.difficulty || 'casino' }); } });
     items.push({ id: 'learn', label: 'Learn the Game', sub: 'Rules, hand rankings, strategy, live etiquette', act: () => FS.ui.showScreen('learn') });
+    items.push({ id: 'drills', label: 'Math Drills', sub: 'Pot odds, outs and call/fold practice', act: () => FS.ui.showScreen('drills') });
     items.push({ id: 'roster', label: 'The Regulars', sub: 'Meet your 48 opponents', act: () => FS.ui.showScreen('roster') });
     items.push({ id: 'stats', label: 'Your Progress', sub: 'Results, stats and past hands', act: () => FS.ui.showScreen('stats') });
     items.push({ id: 'settings', label: 'Settings', sub: 'Audio, coach, AI endpoint', act: () => settings() });
@@ -344,6 +345,7 @@
         <div class="gradebar">${seg(g.good, 'var(--good)')}${seg(g.ok, 'var(--ok)')}${seg(g.mistake, '#ff8a5b')}${seg(g.blunder, 'var(--bad)')}</div>
         <div class="legend"><span><i style="background:var(--good)"></i>Good ${g.good || 0}</span><span><i style="background:var(--ok)"></i>OK ${g.ok || 0}</span><span><i style="background:#ff8a5b"></i>Mistake ${g.mistake || 0}</span><span><i style="background:var(--bad)"></i>Big mistake ${g.blunder || 0}</span></div>
       </div>
+      ${FS.drills ? FS.drills.statsHTML() : ''}
       ${FS.archive.listHTML()}
       <div class="section panel"><h2>Recent tournaments</h2>
         ${hist.length ? `<div class="bars">${hist.map((r) => { const pctile = 1 - (r.finish - 1) / Math.max(1, r.field - 1); return `<div class="bar" style="height:${Math.max(6, pctile * 100)}%;${r.prize ? 'background:linear-gradient(180deg,var(--gold),#b86d00)' : ''}" title="${U.ordinal(r.finish)} of ${r.field}${r.prize ? ' · ' + U.fmtMoney(r.prize) : ''}"><span>${r.finish}</span></div>`; }).join('')}</div><p class="small-note">Bar height = how deep you went (gold = cashed). Number = finishing place.</p>` : '<p class="muted">No tournaments finished yet.</p>'}

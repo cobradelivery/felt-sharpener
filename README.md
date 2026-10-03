@@ -70,6 +70,7 @@ progress.
 | **Decision grading** | Every decision you make is graded (good / OK / mistake / big mistake) with an explanation. Review any hand afterwards. |
 | **AI coach** | Ask anything at any time. It sees the live table, your cards, the action, opponent profiles, the simulator's numbers and your recent hands. |
 | **Learn section** | Rules, hand rankings, position, starting hands, pot odds and outs, post-flop play, tournament strategy, player types, and a chapter on **how a live tournament actually works** (declarations, string bets, protecting your cards, etiquette). |
+| **Math Drills** | Quick-fire practice until the table math is automatic: **pot odds** (% needed to call), **count the outs** on real dealt draws (the out cards are revealed afterwards), **call or fold** (outs vs. price), **bet-size shortcuts** (½ pot → 25% …) and **estimate equity** (hand vs. hand or vs. a range, with an animated equity bar). Every answer gets a plain-English, step-by-step explanation; optional 15-second timer; 10 / 20 / endless sessions; accuracy, streaks and speed per drill type are tracked on *Your Progress*. Keyboard: `1`–`4` answer · `C`/`F` call/fold · `Enter` next. |
 | **Glossary everywhere** | Every dotted word in the coach text shows a plain-English definition on hover or tap. |
 
 **Keyboard:** `F` fold · `C` check/call · `R` bet/raise · `1`–`6` bet-size presets · `Space` next hand · `H` hide/show hints · `Esc` menu.
