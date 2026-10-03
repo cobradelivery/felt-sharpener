@@ -37,7 +37,12 @@
     if (sb && sb.classList.contains('open')) { sb.classList.remove('open'); return 'handled'; }
     const cur = FS.ui.current;
     if (cur === 'game') { FS.screens.pauseMenu(); return 'handled'; }
-    if (cur !== 'title') { FS.ui.showScreen('title'); return 'handled'; }
+    if (cur !== 'title') {
+      // same target as the screen's own ◀ Back button (Learn can return to Math Drills); otherwise the title
+      const btn = document.querySelector('#scr-' + cur + ' .screen-head [data-nav]');
+      FS.ui.showScreen(btn ? btn.dataset.nav : 'title');
+      return 'handled';
+    }
     return 'exit';
   }
   function onPause() { if (FS.audio && FS.audio.suspend) FS.audio.suspend(); if (FS.store) FS.store.save(true); }

@@ -49,9 +49,15 @@ const fs = require('fs');
   await p.click('#press-start'); await p.click('.menu-item[data-id=sng]');
   await p.waitForSelector('#scr-game.active');
   const t0 = Date.now();
+  let shrunk = false;
   while (Date.now() - t0 < 200000) {
-    const s = await p.evaluate(() => ({ scr: FS.ui.current, w: !!FS.game.G.waiter }));
+    const s = await p.evaluate(() => ({ scr: FS.ui.current, w: !!FS.game.G.waiter, bt: FS.game.G.betweenHands }));
     if (s.scr === 'results') break;
+    // After the first hand, leave the hero a tiny stack so shoving busts quickly (keeps the test fast and deterministic in length)
+    if (s.bt && !shrunk) {
+      shrunk = true;
+      await p.evaluate(() => { const T = FS.game.G.T; const h = FS.tournament.hero(T); const other = T.players.find((x) => !x.isHero && !x.busted); other.stack += h.stack - 400; h.stack = 400; });
+    }
     if (s.w) { if (await p.$('#ab-raise')) { await p.click('.presets .btn:last-child'); await p.click('#ab-raise'); } else await p.click('#ab-call'); }
     await p.waitForTimeout(80);
   }

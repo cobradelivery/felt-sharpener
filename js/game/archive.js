@@ -9,6 +9,14 @@
   const KEY = 'feltSharpener.archive.v1';
   const MAX_TOURNEYS = 40;
   const fc = (n) => U.fmtChips(n);
+  /** When the tournament finished: stored, else the last hand's timestamp, else when it was saved. */
+  function finishedAt(rec) {
+    if (rec.finishedAt) return rec.finishedAt;
+    const h = rec.meta && rec.meta.history;
+    const last = h && h.length && h[h.length - 1].t;
+    return last || rec.savedAt || rec.startedAt || Date.now();
+  }
+  const dateOf = (t) => new Date(t).toLocaleDateString();
 
   // ---------- storage ----------
   let list = null;
@@ -50,7 +58,7 @@
     return {
       version: 1, app: 'felt-sharpener',
       id: 't' + (startedAt || Date.now()),
-      savedAt: Date.now(), startedAt: startedAt || null,
+      savedAt: Date.now(), startedAt: startedAt || null, finishedAt: null,
       name: T.name || 'Tournament', field: T.field, buyIn: T.buyIn, payouts: T.payouts,
       speed: T.speed || null, difficulty: T.difficulty || null,
       heroName: FS.store.get().settings.heroName || 'You',
@@ -59,22 +67,25 @@
       meta, chat: chat || [], review: [], notes: '',
     };
   }
+  // Fill finishedAt on new records (last hand's time; falls back to now)
+  function stamp(rec) { if (!rec.finishedAt) rec.finishedAt = finishedAt(rec); return rec; }
   function add(rec) {
     load();
+    stamp(rec);
     list = list.filter((r) => r.id !== rec.id);
     list.push(rec);
     while (list.length > MAX_TOURNEYS) list.shift();
     persist();
     return rec;
   }
-  const all = () => load().slice().sort((a, b) => b.savedAt - a.savedAt);
+  const all = () => load().slice().sort((a, b) => finishedAt(b) - finishedAt(a));
   const get = (id) => load().find((r) => r.id === id) || null;
   function update(rec) { const i = load().findIndex((r) => r.id === rec.id); if (i >= 0) { list[i] = rec; persist(); } }
   function remove(id) { list = load().filter((r) => r.id !== id); persist(); }
 
   // ---------- export / import ----------
   function fileStamp(rec) {
-    const d = new Date(rec.startedAt || rec.savedAt);
+    const d = new Date(finishedAt(rec));
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
   }
@@ -82,7 +93,7 @@
     const m = rec.meta || {};
     const g = m.grades || {};
     const L = [];
-    const when = new Date(rec.startedAt || rec.savedAt).toLocaleString();
+    const when = new Date(finishedAt(rec)).toLocaleString() + (rec.startedAt && dateOf(rec.startedAt) !== dateOf(finishedAt(rec)) ? ` (started ${dateOf(rec.startedAt)})` : '');
     L.push(`# Felt Sharpener — ${rec.name}`, '');
     L.push(`- **Date:** ${when}`);
     L.push(`- **Field:** ${rec.field} players · ${rec.speed || ''} blinds · opponents: ${rec.difficulty || ''}`);
@@ -254,7 +265,7 @@
     const headline = rec.finish === 1 ? 'CHAMPION!' : rec.prize ? 'In the money!' : rec.finish <= (rec.payouts || []).length + 2 ? 'So close!' : 'Good game';
     const hist = (meta.history || []).slice().reverse();
     body.innerHTML = `
-      ${opts.archived ? `<div class="screen-head" style="padding:0"><button class="btn back" id="rep-back">◀ Back</button><h1 class="chrome-title" style="font-size:22px">${U.esc(rec.name)} · ${new Date(rec.startedAt || rec.savedAt).toLocaleDateString()}</h1></div>` : ''}
+      ${opts.archived ? `<div class="screen-head" style="padding:0"><button class="btn back" id="rep-back">◀ Back</button><h1 class="chrome-title" style="font-size:22px">${U.esc(rec.name)} · ${dateOf(finishedAt(rec))}</h1></div>` : ''}
       <div class="results-hero panel"><div class="chrome-title" style="font-size:26px">${headline}</div>
         <div class="place">${U.ordinal(rec.finish)}</div><div class="muted">of ${rec.field} players</div>
         <div class="prize">${rec.prize ? 'You won <b style="color:var(--gold)">' + U.fmtMoney(rec.prize) + '</b>' : 'No cash this time — ' + (rec.payouts || []).length + ' places paid.'}</div></div>
@@ -312,7 +323,7 @@
     const recs = all();
     return `<div class="section panel"><h2>Saved tournaments</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn small" id="arc-import">📂 Import (.json)</button><button class="btn small" id="arc-export-all" ${recs.length ? '' : 'disabled'}>💾 Export all</button></div>
-      ${recs.length ? recs.map((r) => `<div class="hist-item" data-id="${U.esc(r.id)}"><span>${new Date(r.startedAt || r.savedAt).toLocaleDateString()} · ${r.field}-player · <b>${U.ordinal(r.finish)}</b>${r.prize ? ' · ' + U.fmtMoney(r.prize) : ''}${(r.review || []).length ? ' · 💬' : ''}</span><span class="small-note">Open ▶</span></div>`).join('') : '<p class="muted">Finished tournaments are saved here automatically.</p>'}</div>`;
+      ${recs.length ? recs.map((r) => `<div class="hist-item" data-id="${U.esc(r.id)}"><span>${dateOf(finishedAt(r))}${r.startedAt && dateOf(r.startedAt) !== dateOf(finishedAt(r)) ? ` <span class="muted">(started ${dateOf(r.startedAt)})</span>` : ''} · ${r.field}-player · <b>${U.ordinal(r.finish)}</b>${r.prize ? ' · ' + U.fmtMoney(r.prize) : ''}${(r.review || []).length ? ' · 💬' : ''}</span><span class="small-note">Open ▶</span></div>`).join('') : '<p class="muted">Finished tournaments are saved here automatically.</p>'}</div>`;
   }
   function bindList(container, rerender) {
     $$('.hist-item[data-id]', container).forEach((it) => (it.onclick = () => FS.ui.showScreen('results', { id: it.dataset.id, archived: true })));
@@ -320,5 +331,5 @@
     const exp = $('#arc-export-all', container); if (exp) exp.onclick = exportAll;
   }
 
-  FS.archive = { load, add, all, get, update, remove, makeRecord, toMarkdown, exportMarkdown, exportJSON, exportAll, importText, pickImport, contextFor, conversation, askAboutHand, renderReport, listHTML, bindList, KEY };
+  FS.archive = { finishedAt, load, add, all, get, update, remove, makeRecord, toMarkdown, exportMarkdown, exportJSON, exportAll, importText, pickImport, contextFor, conversation, askAboutHand, renderReport, listHTML, bindList, KEY };
 })(typeof window !== 'undefined' ? window : globalThis);

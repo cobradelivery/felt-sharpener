@@ -184,7 +184,12 @@
   ];
 
   let cur = 'hand';
-  function render() {
+  let returnTo = 'title';
+  function render(arg, prev) {
+    // the Back button returns to where the lesson was opened from (e.g. Math Drills), else the title
+    if (prev && prev !== 'learn') returnTo = prev === 'drills' ? 'drills' : 'title';
+    const back = $('#scr-learn .btn.back');
+    if (back) back.dataset.nav = returnTo;
     const body = $('#learn-body');
     const L = LESSONS.find((l) => l.id === cur) || LESSONS[0];
     body.innerHTML = `<nav class="learn-nav panel">${LESSONS.map((l) => `<button data-l="${l.id}" class="${l.id === cur ? 'sel' : ''}">${l.title}</button>`).join('')}</nav>
@@ -197,5 +202,11 @@
     return `<span>${i > 0 ? `<button class="btn small" data-l="${LESSONS[i - 1].id}">◀ ${LESSONS[i - 1].title}</button>` : ''}</span><span>${i < LESSONS.length - 1 ? `<button class="btn small gold" data-l="${LESSONS[i + 1].id}">${LESSONS[i + 1].title} ▶</button>` : ''}</span>`;
   }
   FS.ui.onScreen('learn', render);
-  FS.learn = { LESSONS, render };
+  /** Open a specific lesson, e.g. open('odds') from the Math Drills screen. */
+  function open(id) {
+    if (LESSONS.some((l) => l.id === id)) cur = id;
+    FS.ui.showScreen('learn');
+    $('#scr-learn').scrollTop = 0;
+  }
+  FS.learn = { LESSONS, render, open, get current() { return cur; } };
 })(typeof window !== 'undefined' ? window : globalThis);
