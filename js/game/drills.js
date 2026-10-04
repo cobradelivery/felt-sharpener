@@ -191,7 +191,7 @@
       const names = info.straightRanks.map((r) => C.RANK_PLURAL[r]).join(' or ');
       const extra = info.straightOuts.length - info.overlap.length;
       const ov = info.overlap.length;
-      parts.push(info.flushOuts.length ? `**${extra}** more ${names} make the straight (${ov === 1 ? 'the other one is' : ov + ' of them are'} already counted as a flush card — count each card once)` : `the four ${names} make the straight — **${info.straightOuts.length}** cards`);
+      parts.push(info.flushOuts.length ? `**${extra}** more ${names} make the straight (${ov === 1 ? 'the other one is' : ov + ' of them are'} already counted as a flush card — count each card once)` : `${info.straightRanks.length === 1 ? 'the four ' + names : 'any ' + info.straightRanks.map((r) => C.RANK_NAME[r]).join(' or ') + ' (four of each)'} make${info.straightRanks.length === 1 ? '' : 's'} the straight — **${info.straightOuts.length}** cards`);
     }
     return parts.join('; ') + '.';
   }

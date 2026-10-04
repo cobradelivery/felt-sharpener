@@ -55,9 +55,19 @@ android/build.sh
 ```
 
 The script bundles `index.html`, `css/` and `js/` into the app unchanged, so any change to the game is
-picked up on the next build. It signs with `android/felt-sharpener.keystore` (password
-`feltsharpener`). Keep using that key so new builds install over the old one without losing your
-progress.
+picked up on the next build.
+
+**Signing key.** The APK is signed with a private key that is **not** in this repository (keys are
+git-ignored). Supply it when building:
+
+```sh
+KEYSTORE=/path/to/felt-sharpener-key.keystore KS_PASS="$(cat /path/to/felt-sharpener-key.keystore.pass)" android/build.sh
+# or copy them to android/release.keystore and android/release.keystore.pass, then just run android/build.sh
+```
+
+Keep the key and password private and backed up. Android only accepts an update signed with the same key
+as the installed app. If you lose the key, you must uninstall (export your saved tournaments first) and
+reinstall a build signed with a new one. Without a key, `build.sh` stops and prints how to create one.
 
 ## What's inside
 
@@ -73,7 +83,7 @@ progress.
 | **Math Drills** | Quick-fire practice until the table math is automatic: **pot odds** (% needed to call), **count the outs** on real dealt draws (the out cards are revealed afterwards), **call or fold** (outs vs. price), **bet-size shortcuts** (½ pot → 25% …) and **estimate equity** (hand vs. hand or vs. a range, with an animated equity bar). Every answer gets a plain-English, step-by-step explanation; optional 15-second timer; 10 / 20 / endless sessions; accuracy, streaks and speed per drill type are tracked on *Your Progress*. Keyboard: `1`–`4` answer · `C`/`F` call/fold · `Enter` next. |
 | **Glossary everywhere** | Every dotted word in the coach text shows a plain-English definition on hover or tap. |
 
-**Keyboard:** `F` fold · `C` check/call · `R` bet/raise · `1`–`6` bet-size presets · `Space` next hand · `H` hide/show hints · `Esc` menu.
+**Keyboard:** `F` fold · `C` check/call · `R` bet/raise · `1`–`5` bet-size presets · `Space` next hand · `H` hide/show hints · `Esc` menu.
 
 ## Connecting the AI coach
 

@@ -50,12 +50,18 @@
   function save(now) {
     if (!data) return;
     const write = () => {
-      try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(data)); }
-      catch (e) {
-        // quota: trim hand history and retry once
-        data.hands = data.hands.slice(-15);
-        try { root.localStorage.setItem(KEY, JSON.stringify(data)); } catch (e2) { /* give up silently */ }
+      if (!root.localStorage) return;
+      const json = JSON.stringify(data);
+      // The storage quota is shared with the tournament archive: when full, free archive space
+      // (oldest tournaments' hand histories first), then the recent-hands list, then warn.
+      for (let attempt = 0; attempt < 60; attempt++) {
+        try { root.localStorage.setItem(KEY, attempt < 50 ? json : JSON.stringify(data)); return; } catch (e) {
+          if (attempt < 50 && FS.archive && FS.archive.freeSpace()) continue;
+          if (data.hands.length > 15) { data.hands = data.hands.slice(-15); attempt = 50; continue; }
+          break;
+        }
       }
+      if (FS.ui && FS.ui.toast) FS.ui.toast('Storage is full — progress could not be saved. Export saved tournaments, then delete some.', 'red', 6000);
     };
     clearTimeout(saveTimer);
     if (now) write(); else saveTimer = setTimeout(write, 150);
@@ -70,7 +76,7 @@
     d.hands.push(rec);
     if (d.hands.length > 60) d.hands = d.hands.slice(-60);
   }
-  function reset() { data = JSON.parse(JSON.stringify(DEFAULTS)); save(true); }
+  function reset() { data = JSON.parse(JSON.stringify(DEFAULTS)); if (FS.archive) FS.archive.clearAll(); save(true); }
   function resetStatsKeepSettings() { const s = get().settings; data = JSON.parse(JSON.stringify(DEFAULTS)); data.settings = s; save(true); }
 
   FS.store = { load, save, get, opp, addHand, reset, resetStatsKeepSettings, DEFAULTS };
