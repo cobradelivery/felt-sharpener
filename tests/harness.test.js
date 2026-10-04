@@ -61,3 +61,56 @@ test('harness wraps the prompt and proxies to an OpenAI-compatible endpoint', as
     upstream.close();
   }
 });
+
+test('harness security: refuses cross-site requests, never leaks the env API key to a caller-chosen endpoint', async () => {
+  let seen = null;
+  const upstream = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (d) => (body += d));
+    req.on('end', () => {
+      seen = { auth: req.headers.authorization, body: JSON.parse(body) };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }));
+    });
+  });
+  const upPort = await listen(upstream);
+  const port = 18000 + Math.floor(Math.random() * 1000);
+  const env = Object.assign({}, process.env, { FELT_LLM_API_KEY: 'sk-secret-env', FELT_LLM_ENDPOINT: 'http://127.0.0.1:9/v1' });
+  const py = spawn('python3', [path.join(__dirname, '..', 'server', 'harness.py'), '--port', String(port), '--no-browser'], { stdio: 'ignore', env });
+  const base = `http://127.0.0.1:${port}`;
+  const post = (body, headers) => fetch(base + '/api/coach', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}), body: JSON.stringify(body) });
+  try {
+    await waitFor(base + '/api/health', 8000);
+    // cross-site page (Origin of another site) is refused
+    const evil = await post({ question: 'x', config: { endpoint: `http://127.0.0.1:${upPort}/v1` } }, { Origin: 'https://evil.example' });
+    assert.strictEqual(evil.status, 403);
+    // "simple" text/plain CORS request (no preflight) is refused
+    const plain = await fetch(base + '/api/coach', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: '{"question":"x"}' });
+    assert.strictEqual(plain.status, 415);
+    assert.strictEqual(seen, null, 'nothing reached the upstream');
+    // same-origin request to a caller-chosen endpoint: the env key must NOT be attached
+    const own = await post({ question: 'x', config: { endpoint: `http://127.0.0.1:${upPort}/v1`, temperature: null } }, { Origin: base });
+    assert.strictEqual(own.status, 200);
+    assert.strictEqual(seen.auth, undefined, 'env API key leaked to a non-env endpoint');
+    assert.strictEqual(seen.body.temperature, 0.2, 'null temperature falls back to 0.2');
+    // missing static file -> a real 404 (used to crash the logger and reset the connection)
+    const miss = await fetch(base + '/no-such-file.js');
+    assert.strictEqual(miss.status, 404);
+  } finally {
+    py.kill();
+    upstream.close();
+  }
+});
+
+test('harness: not-configured is reported with a structured code', async () => {
+  const port = 18000 + Math.floor(Math.random() * 1000);
+  const env = Object.assign({}, process.env); delete env.FELT_LLM_ENDPOINT;
+  const py = spawn('python3', [path.join(__dirname, '..', 'server', 'harness.py'), '--port', String(port), '--no-browser'], { stdio: 'ignore', env });
+  try {
+    await waitFor(`http://127.0.0.1:${port}/api/health`, 8000);
+    const r = await fetch(`http://127.0.0.1:${port}/api/coach`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'x', config: {} }) });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual((await r.json()).code, 'NOT_CONFIGURED');
+  } finally { py.kill(); }
+});
+

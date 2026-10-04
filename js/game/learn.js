@@ -177,10 +177,7 @@
       <li>No gloating, no berating anyone’s play. Say “nice hand” and move on.</li>
       <li>If you cash, it’s customary to tip the dealers (often a few percent of your cash) — ask what’s standard at your venue.</li></ul>
       <div class="callout">Nervous? Everyone was new once. Tell the dealer it’s your first live tournament — they’ll happily guide you.</div>` },
-    { id: 'gloss', title: '10. Glossary', html: () => {
-      const G = FS.coach.GLOSSARY;
-      return `<h2>Glossary</h2><table class="grid">${Object.keys(G).sort((a, b) => a.localeCompare(b)).map((k) => `<tr><td style="white-space:nowrap"><b>${U.esc(k)}</b></td><td>${U.esc(G[k])}</td></tr>`).join('')}</table>`;
-    } },
+    { id: 'gloss', title: '10. Glossary', html: () => `<h2>Glossary</h2>${FS.coach.glossaryTableHTML()}` },
   ];
 
   let cur = 'hand';

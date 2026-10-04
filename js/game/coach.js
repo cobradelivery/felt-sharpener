@@ -439,5 +439,14 @@
     return out;
   }
 
-  FS.coach = { handFacts, GLOSSARY, glossaryHTML, bigPicture, tableRead, handCoach, recommendation, grade, narrate, describeAction, verb, handName, prettyCards, boardTexture, recLabel, POS_PLAIN };
+  /** Light markdown for AI replies (escaped first): **bold**, `code`, # headings. */
+  function mdLite(s) {
+    return U.esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/^#{1,4}\s*(.+)$/gm, '<b>$1</b>');
+  }
+  /** The full glossary as a sorted two-column table. */
+  function glossaryTableHTML() {
+    return `<table class="grid">${Object.keys(GLOSSARY).sort((a, b) => a.localeCompare(b)).map((k) => `<tr><td style="white-space:nowrap"><b>${U.esc(k)}</b></td><td>${U.esc(GLOSSARY[k])}</td></tr>`).join('')}</table>`;
+  }
+
+  FS.coach = { stripTerms, mdLite, glossaryTableHTML, handFacts, GLOSSARY, glossaryHTML, bigPicture, tableRead, handCoach, recommendation, grade, narrate, describeAction, verb, handName, prettyCards, boardTexture, recLabel, POS_PLAIN };
 })(typeof window !== 'undefined' ? window : globalThis);

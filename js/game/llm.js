@@ -53,6 +53,7 @@
         body: JSON.stringify({ question, history, context, config: { endpoint: cfg.endpoint, apiKey: cfg.apiKey, model: cfg.model, temperature: cfg.temperature } }),
       }), 190000, ctl);
       const j = await r.json().catch(() => ({ error: 'Bad response from harness' }));
+      if (j.code === 'NOT_CONFIGURED') throw new Error('NOT_CONFIGURED');
       if (!r.ok || j.error) throw new Error(j.error || ('Harness error ' + r.status));
       return { reply: j.reply, route: 'harness', model: j.model };
     }

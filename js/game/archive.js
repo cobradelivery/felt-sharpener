@@ -27,19 +27,31 @@
     migrateLastResult();
     return list;
   }
+  /** Drop the full hand histories of the OLDEST tournament that still has them. Returns false if none left. */
+  function trimOldest() {
+    const victim = load().slice().sort((a, b) => finishedAt(a) - finishedAt(b))
+      .find((r) => r.meta && r.meta.history && r.meta.history.length);
+    if (!victim) return false;
+    victim.meta.history = [];
+    victim.historyTrimmed = true;
+    return true;
+  }
   function persist() {
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 60; attempt++) {
       try { root.localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch (e) {
-        // Out of space: drop full hand histories from the oldest record that still has them.
-        const victim = list.slice().reverse().find((r) => r.meta && r.meta.history && r.meta.history.length);
-        if (!victim) break;
-        victim.meta.history = [];
-        victim.historyTrimmed = true;
+        if (!trimOldest()) break; // out of space: free the oldest tournament's hand histories and retry
       }
     }
     toast('Could not save the tournament archive (storage full). Export your tournaments to keep them.', 'red', 5000);
     return false;
   }
+  /** Called by the main save when the shared storage quota is full: frees archive space. */
+  function freeSpace() {
+    if (!trimOldest()) return false;
+    try { root.localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* the next call trims more */ }
+    return true;
+  }
+  function clearAll() { list = []; try { root.localStorage.removeItem(KEY); } catch (e) { /* ignore */ } }
   /** Older versions kept only the last result in the main save; bring it into the archive once. */
   function migrateLastResult() {
     const st = FS.store.get();
@@ -69,13 +81,13 @@
   }
   // Fill finishedAt on new records (last hand's time; falls back to now)
   function stamp(rec) { if (!rec.finishedAt) rec.finishedAt = finishedAt(rec); return rec; }
-  function add(rec) {
+  function add(rec, opts) {
     load();
     stamp(rec);
     list = list.filter((r) => r.id !== rec.id);
     list.push(rec);
-    while (list.length > MAX_TOURNEYS) list.shift();
-    persist();
+    if (list.length > MAX_TOURNEYS) list = list.sort((a, b) => finishedAt(a) - finishedAt(b)).slice(-MAX_TOURNEYS);
+    if (!(opts && opts.noPersist)) persist();
     return rec;
   }
   const all = () => load().slice().sort((a, b) => finishedAt(b) - finishedAt(a));
@@ -127,7 +139,7 @@
     L.push('', '_Exported from Felt Sharpener._', '');
     return L.join('\n');
   }
-  const strip = (s) => (s || '').replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, k, sh) => sh || k).replace(/\*\*/g, '');
+  const strip = (s) => FS.coach.stripTerms(s).replace(/\*\*/g, '');
 
   function exportMarkdown(rec) { FS.native.saveFile(`felt-sharpener_${fileStamp(rec)}_${U.ordinal(rec.finish)}-of-${rec.field}.md`, 'text/markdown', toMarkdown(rec)); }
   function exportJSON(rec) { FS.native.saveFile(`felt-sharpener_${fileStamp(rec)}.json`, 'application/json', JSON.stringify(rec, null, 1)); }
@@ -135,6 +147,40 @@
     const recs = all();
     if (!recs.length) return toast('No saved tournaments yet');
     FS.native.saveFile(`felt-sharpener_all-tournaments_${fileStamp({ savedAt: Date.now() })}.json`, 'application/json', JSON.stringify({ app: 'felt-sharpener', version: 1, tournaments: recs }, null, 1));
+  }
+  // ---------- import sanitising: imported files are untrusted, so rebuild every field with the right type ----------
+  const num = (v, d) => (Number.isFinite(+v) ? +v : (d == null ? 0 : d));
+  const str = (v, max) => (v == null ? '' : String(v)).slice(0, max || 20000);
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const pick = (v, allowed, d) => (allowed.includes(v) ? v : d);
+  const GRADES = ['good', 'ok', 'mistake', 'blunder'];
+  const STREETS = ['preflop', 'flop', 'turn', 'river'];
+  const card = (c) => { c = Math.floor(num(c, -1)); return c >= 0 && c < 52 ? c : null; };
+  const cards = (v) => arr(v).map(card).filter((c) => c != null).slice(0, 7);
+  const grade = (g) => ({ grade: pick(g && g.grade, GRADES, 'ok'), text: str(g && g.text, 2000), rec: str(g && g.rec, 80), took: str(g && g.took, 20), street: pick(g && g.street, STREETS, 'preflop') });
+  const msgs = (v) => arr(v).slice(0, 400).map((m) => ({ role: m && m.role === 'user' ? 'user' : 'assistant', content: str(m && m.content), meta: pick(m && m.meta, ['err', 'builtin'], undefined) }));
+  function sanitize(r) {
+    const m = r.meta || {};
+    const g = m.grades || {};
+    return {
+      version: 1, app: 'felt-sharpener',
+      id: str(r.id, 60).replace(/[^\w-]/g, '') || 't' + Date.now(),
+      savedAt: num(r.savedAt, Date.now()), startedAt: r.startedAt ? num(r.startedAt) : null, finishedAt: r.finishedAt ? num(r.finishedAt) : null,
+      name: str(r.name, 80), field: num(r.field), buyIn: num(r.buyIn), payouts: arr(r.payouts).map((x) => num(x)).slice(0, 20),
+      speed: str(r.speed, 20), difficulty: str(r.difficulty, 20), heroName: str(r.heroName, 30) || 'You',
+      finish: num(r.finish), prize: num(r.prize), historyTrimmed: !!r.historyTrimmed,
+      players: arr(r.players).slice(0, 100).map((p) => ({ id: str(p && p.id, 40), name: str(p && p.name, 60), finish: num(p && p.finish), prize: num(p && p.prize), style: str(p && p.style, 20) })),
+      meta: {
+        hands: num(m.hands), vpip: num(m.vpip), pfr: num(m.pfr), biggestWin: num(m.biggestWin), biggestLoss: num(m.biggestLoss), startedAt: m.startedAt ? num(m.startedAt) : null,
+        grades: { good: num(g.good), ok: num(g.ok), mistake: num(g.mistake), blunder: num(g.blunder) },
+        mistakes: arr(m.mistakes).slice(0, 500).map((x) => Object.assign(grade(x), { hand: num(x && x.hand), cards: str(x && x.cards, 20), grade: pick(x && x.grade, GRADES, 'mistake') })),
+        history: arr(m.history).slice(0, 1000).map((h) => ({
+          no: num(h && h.no), level: num(h && h.level), t: num(h && h.t), cards: cards(h && h.cards), board: cards(h && h.board), net: num(h && h.net), pot: num(h && h.pot),
+          pos: str(h && h.pos, 8), narrative: str(h && h.narrative), title: str(h && h.title, 120), grades: arr(h && h.grades).slice(0, 10).map(grade),
+        })),
+      },
+      chat: msgs(r.chat), review: msgs(r.review), notes: str(r.notes),
+    };
   }
   /** Accepts one exported tournament, or an "all tournaments" bundle. Returns number imported. */
   function importText(text) {
@@ -144,9 +190,10 @@
     let n = 0;
     for (const r of recs) {
       if (!r || r.app !== 'felt-sharpener' || !r.id || !Array.isArray(r.players) || !r.meta) continue;
-      add(r); n++;
+      add(sanitize(r), { noPersist: true }); n++;
     }
     if (!n) throw new Error('No Felt Sharpener tournaments found in that file.');
+    persist();
     return n;
   }
   function pickImport(onDone) {
@@ -192,9 +239,7 @@
   }
 
   // ---------- conversation widget ----------
-  function mdLite(s) {
-    return U.esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/^#{1,4}\s*(.+)$/gm, '<b>$1</b>');
-  }
+  const mdLite = (t) => FS.coach.mdLite(t);
   /**
    * A chat thread with a free-form reply box.
    * opts: { messages: array (mutated), context: (question) => string, starter: {label, question}, onChange, placeholder }
@@ -267,10 +312,10 @@
     body.innerHTML = `
       ${opts.archived ? `<div class="screen-head" style="padding:0"><button class="btn back" id="rep-back">◀ Back</button><h1 class="chrome-title" style="font-size:22px">${U.esc(rec.name)} · ${dateOf(finishedAt(rec))}</h1></div>` : ''}
       <div class="results-hero panel"><div class="chrome-title" style="font-size:26px">${headline}</div>
-        <div class="place">${U.ordinal(rec.finish)}</div><div class="muted">of ${rec.field} players</div>
+        <div class="place">${U.ordinal(num(rec.finish))}</div><div class="muted">of ${num(rec.field)} players</div>
         <div class="prize">${rec.prize ? 'You won <b style="color:var(--gold)">' + U.fmtMoney(rec.prize) + '</b>' : 'No cash this time — ' + (rec.payouts || []).length + ' places paid.'}</div></div>
       <div class="kpis">
-        <div class="kpi panel"><b>${meta.hands || 0}</b><span>Hands dealt</span></div>
+        <div class="kpi panel"><b>${num(meta.hands)}</b><span>Hands dealt</span></div>
         <div class="kpi panel"><b>${meta.hands ? Math.round(meta.vpip / meta.hands * 100) : 0}%</b><span>Hands played</span></div>
         <div class="kpi panel"><b>${meta.hands ? Math.round(meta.pfr / meta.hands * 100) : 0}%</b><span>Raised preflop</span></div>
         <div class="kpi panel"><b>${acc == null ? '—' : acc + '%'}</b><span>Decision score</span></div>
@@ -280,12 +325,12 @@
         <p class="muted" style="margin-top:0">Ask for a review, then reply with follow-ups — mention a hand number (e.g. “hand 23”) and its full history is sent along. The conversation is saved with this tournament.</p>
         <div id="rep-convo"></div></div>
       <div class="section panel"><h2>Coach’s notes: mistakes to learn from</h2>
-        ${(meta.mistakes || []).length ? meta.mistakes.slice(-8).reverse().map((x) => `<div class="mistake-item"><b>Hand #${x.hand}</b> (${U.esc(x.cards)}, ${x.street}) — you ${x.took}, coach suggested ${U.esc(x.rec)}.<br>${FS.coach.glossaryHTML(x.text)}</div>`).join('') : '<p>No flagged mistakes. Nice discipline!</p>'}
+        ${(meta.mistakes || []).length ? meta.mistakes.slice(-8).reverse().map((x) => `<div class="mistake-item"><b>Hand #${num(x.hand)}</b> (${U.esc(x.cards)}, ${U.esc(x.street)}) — you ${U.esc(x.took)}, coach suggested ${U.esc(x.rec)}.<br>${FS.coach.glossaryHTML(x.text)}</div>`).join('') : '<p>No flagged mistakes. Nice discipline!</p>'}
       </div>
       <div class="section panel"><h2>Final standings</h2><table class="grid"><tr><th>Place</th><th>Player</th><th>Style</th><th class="num">Prize</th></tr>
-        ${top.map((p) => `<tr class="${p.id === 'hero' ? 'me' : ''}"><td>${U.ordinal(p.finish)}</td><td>${U.esc(p.id === 'hero' ? rec.heroName || 'You' : p.name)}</td><td>${p.id === 'hero' ? '' : (FS.roster.STYLES[p.style] || {}).label || ''}</td><td class="num">${p.prize ? U.fmtMoney(p.prize) : ''}</td></tr>`).join('')}</table></div>
+        ${top.map((p) => `<tr class="${p.id === 'hero' ? 'me' : ''}"><td>${U.ordinal(num(p.finish))}</td><td>${U.esc(p.id === 'hero' ? rec.heroName || 'You' : p.name)}</td><td>${p.id === 'hero' ? '' : (FS.roster.STYLES[p.style] || {}).label || ''}</td><td class="num">${p.prize ? U.fmtMoney(p.prize) : ''}</td></tr>`).join('')}</table></div>
       <div class="section panel"><h2>Every hand (${hist.length}${rec.historyTrimmed ? ', older ones trimmed for space' : ''})</h2>
-        ${hist.length ? `<div style="max-height:320px;overflow-y:auto">${hist.map((r, i) => `<div class="hist-item" data-i="${i}"><span>#${r.no} · L${r.level} · ${U.esc(r.title)}</span><span>${(r.grades || []).map((x) => `<span style="color:var(--${x.grade === 'good' ? 'good' : x.grade === 'ok' ? 'ok' : 'bad'})">●</span>`).join('')}</span></div>`).join('')}</div>` : '<p class="muted">No hand histories saved.</p>'}
+        ${hist.length ? `<div style="max-height:320px;overflow-y:auto">${hist.map((r, i) => `<div class="hist-item" data-i="${i}"><span>#${num(r.no)} · L${num(r.level)} · ${U.esc(r.title)}</span><span>${(r.grades || []).map((x) => `<span style="color:var(--${x.grade === 'good' ? 'good' : x.grade === 'ok' ? 'ok' : 'bad'})">●</span>`).join('')}</span></div>`).join('')}</div>` : '<p class="muted">No hand histories saved.</p>'}
       </div>
       <div class="section panel"><h2>My notes</h2>
         <textarea id="rep-notes" style="width:100%;min-height:70px;padding:8px;border-radius:8px;border:1px solid var(--line);background:#06102a;color:#fff;font-family:inherit" placeholder="Anything you want to remember about this tournament…">${U.esc(rec.notes || '')}</textarea></div>
@@ -323,7 +368,7 @@
     const recs = all();
     return `<div class="section panel"><h2>Saved tournaments</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn small" id="arc-import">📂 Import (.json)</button><button class="btn small" id="arc-export-all" ${recs.length ? '' : 'disabled'}>💾 Export all</button></div>
-      ${recs.length ? recs.map((r) => `<div class="hist-item" data-id="${U.esc(r.id)}"><span>${dateOf(finishedAt(r))}${r.startedAt && dateOf(r.startedAt) !== dateOf(finishedAt(r)) ? ` <span class="muted">(started ${dateOf(r.startedAt)})</span>` : ''} · ${r.field}-player · <b>${U.ordinal(r.finish)}</b>${r.prize ? ' · ' + U.fmtMoney(r.prize) : ''}${(r.review || []).length ? ' · 💬' : ''}</span><span class="small-note">Open ▶</span></div>`).join('') : '<p class="muted">Finished tournaments are saved here automatically.</p>'}</div>`;
+      ${recs.length ? recs.map((r) => `<div class="hist-item" data-id="${U.esc(r.id)}"><span>${dateOf(finishedAt(r))}${r.startedAt && dateOf(r.startedAt) !== dateOf(finishedAt(r)) ? ` <span class="muted">(started ${dateOf(r.startedAt)})</span>` : ''} · ${num(r.field)}-player · <b>${U.ordinal(num(r.finish))}</b>${r.prize ? ' · ' + U.fmtMoney(r.prize) : ''}${(r.review || []).length ? ' · 💬' : ''}</span><span class="small-note">Open ▶</span></div>`).join('') : '<p class="muted">Finished tournaments are saved here automatically.</p>'}</div>`;
   }
   function bindList(container, rerender) {
     $$('.hist-item[data-id]', container).forEach((it) => (it.onclick = () => FS.ui.showScreen('results', { id: it.dataset.id, archived: true })));
@@ -331,5 +376,5 @@
     const exp = $('#arc-export-all', container); if (exp) exp.onclick = exportAll;
   }
 
-  FS.archive = { finishedAt, load, add, all, get, update, remove, makeRecord, toMarkdown, exportMarkdown, exportJSON, exportAll, importText, pickImport, contextFor, conversation, askAboutHand, renderReport, listHTML, bindList, KEY };
+  FS.archive = { finishedAt, trimOldest, freeSpace, clearAll, sanitize, load, add, all, get, update, remove, makeRecord, toMarkdown, exportMarkdown, exportJSON, exportAll, importText, pickImport, contextFor, conversation, askAboutHand, renderReport, listHTML, bindList, KEY };
 })(typeof window !== 'undefined' ? window : globalThis);

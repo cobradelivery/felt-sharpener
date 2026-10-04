@@ -17,7 +17,9 @@
     }
     return new Promise((resolve, reject) => {
       const id = 'r' + (++seq);
-      pending[id] = { resolve, reject };
+      const ms = (opts.timeoutMs || 180000) + 5000;
+      const timer = setTimeout(() => { if (pending[id]) { delete pending[id]; reject(new Error('Request timed out')); } }, ms);
+      pending[id] = { resolve: (v) => { clearTimeout(timer); resolve(v); }, reject: (e) => { clearTimeout(timer); reject(e); } };
       bridge.httpRequest(id, url, opts.method || 'GET', JSON.stringify(opts.headers || {}), opts.body || '', opts.timeoutMs || 180000);
     });
   }

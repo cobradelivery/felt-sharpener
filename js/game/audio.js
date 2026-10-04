@@ -241,6 +241,8 @@
     const song = SONGS[music.songIdx];
     const tempo = song.bpm * (music.mood === 'tense' ? 1.06 : 1);
     const beat = 60 / tempo;
+    // If timers were throttled (background tab), skip the missed steps instead of playing them all at once.
+    if (music.nextTime < ctx.currentTime - 0.1) music.nextTime = ctx.currentTime + 0.05;
     while (music.nextTime < ctx.currentTime + 0.25) {
       const totalSteps = music.plan.length * 8;
       if (music.step >= totalSteps) {

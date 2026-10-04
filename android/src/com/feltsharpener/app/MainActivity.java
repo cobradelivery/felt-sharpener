@@ -121,6 +121,11 @@ public class MainActivity extends Activity {
             fileCallback = null;
         } else if (requestCode == REQ_SAVE) {
             String js;
+            // The Activity may have been recreated while the picker was open: recover the export from the cache.
+            if (pendingSaveText == null) {
+                pendingSaveText = readPendingExport();
+                pendingSaveName = getSharedPreferences("felt", MODE_PRIVATE).getString("pendingExportName", "file");
+            }
             if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingSaveText != null) {
                 try {
                     OutputStream os = getContentResolver().openOutputStream(data.getData());
@@ -134,8 +139,32 @@ public class MainActivity extends Activity {
                 js = "FS.native.saved(false,'Not saved')";
             }
             pendingSaveText = null;
+            new java.io.File(getCacheDir(), "pending_export").delete();
             web.evaluateJavascript(js, null);
         }
+    }
+
+    private void writePendingExport(String name, String text) {
+        try {
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(new java.io.File(getCacheDir(), "pending_export"));
+            fos.write(text.getBytes("UTF-8"));
+            fos.close();
+            getSharedPreferences("felt", MODE_PRIVATE).edit().putString("pendingExportName", name).apply();
+        } catch (Exception ignored) { }
+    }
+
+    private String readPendingExport() {
+        try {
+            java.io.File f = new java.io.File(getCacheDir(), "pending_export");
+            if (!f.exists()) return null;
+            java.io.FileInputStream in = new java.io.FileInputStream(f);
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int n;
+            while ((n = in.read(chunk)) > 0) buf.write(chunk, 0, n);
+            in.close();
+            return buf.toString("UTF-8");
+        } catch (Exception e) { return null; }
     }
 
     @Override
@@ -226,6 +255,7 @@ public class MainActivity extends Activity {
             ui.post(new Runnable() { @Override public void run() {
                 pendingSaveName = name;
                 pendingSaveText = text;
+                writePendingExport(name, text);
                 Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
                 i.setType(mime == null || mime.isEmpty() ? "text/plain" : mime);

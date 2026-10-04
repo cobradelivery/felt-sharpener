@@ -10,7 +10,10 @@
   const G = {
     T: null, hand: null, heroSeat: -1, running: false, analysis: null, grades: [], obs: {}, meta: null,
     chat: [], waiter: null, lastFeedback: null, handNo: 0, betweenHands: false, advanceResolver: null,
+    gen: 0, // bumped on every start/stop so an old game loop can't keep running after quit + continue
   };
+  /** Throws 'stopped' if this loop's game was stopped or replaced. Call after every await in the game flow. */
+  function live(gen) { if (!G.running || gen !== G.gen) throw new Error('stopped'); }
   const S = () => FS.store.get().settings;
 
   // ---------- lifecycle ----------
@@ -22,6 +25,7 @@
     const T = TM.create(Object.assign({ heroName: st.settings.heroName || 'You' }, opts));
     G.T = T; G.meta = newMeta(); G.obs = {}; G.chat = []; G.handNo = 0;
     st.tourney = null; st.tourneyMeta = null;
+    saveProgress(); // saved before the first deal, so quitting during hand 1 can still be continued
     FS.store.save(true);
     enterGame();
   }
@@ -53,6 +57,7 @@
     renderLog();
     renderOpps();
     FS.audio.setMood(TM.onBubble(G.T) ? 'tense' : 'normal');
+    const gen = ++G.gen;
     const st = FS.store.get();
     if (!st.seenIntro) {
       st.seenIntro = true; FS.store.save();
@@ -65,14 +70,15 @@
           <li><b>Ask AI:</b> chat with the AI coach anytime (“what should I do?”, “how did I play that?”). Connect your endpoint in ⚙ Settings → AI Coach.</li>
           <li><b>Players tab:</b> who you’re up against and how to beat them. <b>Hand Log:</b> replay and review past hands.</li>
         </ul>
-        <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-close>Let’s play ▶</button></div>`, { onClose: () => setTimeout(loop, 150) });
+        <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-close>Let’s play ▶</button></div>`, { onClose: () => setTimeout(() => loop(gen), 150) });
       void m;
       return;
     }
-    setTimeout(loop, 250);
+    setTimeout(() => loop(gen), 250);
   }
   function stop() {
     G.running = false;
+    G.gen++;
     if (G.waiter) { G.waiter.reject(new Error('stopped')); G.waiter = null; }
     if (G.advanceResolver) { G.advanceResolver(); G.advanceResolver = null; }
   }
@@ -88,29 +94,26 @@
     const o = G.obs[id];
     return { style: p.style, observed: o && o.hands ? { hands: o.hands, vpip: o.vpip / o.hands, pfr: o.pfr / o.hands } : null };
   }
-  /** What the coach assumes about each opponent: their style (a regular) blended with what you've seen. */
-  function readFor(id) {
-    const p = TM.player(G.T, id);
-    if (!p || p.isHero) return null;
-    return FS.roster.STYLES[p.style] || null;
-  }
+  /** What the coach assumes about each opponent: their regular playing style. */
+  const readFor = (id) => TM.readFor(G.T, id);
 
   // ---------- main loop ----------
-  async function loop() {
+  async function loop(gen) {
     try {
-      while (G.running) {
+      for (;;) {
+        live(gen);
         const T = G.T;
         if (T.over || TM.hero(T).busted) { await finishTournament(); return; }
         const table = TM.heroTable(T);
-        if (table.seats.filter(Boolean).length < 2) { await handleRoundEvents(TM.afterRound(T)); continue; }
-        await playHand(table);
-        if (!G.running) return;
+        if (table.seats.filter(Boolean).length < 2) { await handleRoundEvents(TM.afterRound(T), gen); continue; }
+        await playHand(table, gen);
+        live(gen);
         const events = TM.afterRound(T);
-        saveProgress();
-        await handleRoundEvents(events);
+        saveProgress(); // the round is complete: safe to persist before the (slow) announcements
+        await handleRoundEvents(events, gen);
+        live(gen);
         renderHUD();
-        if (TM.hero(T).busted || T.over) { saveProgress(); await sleep(TV.dur(1200)); await finishTournament(); return; }
-        saveProgress();
+        if (TM.hero(T).busted || T.over) { await sleep(TV.dur(1200)); live(gen); await finishTournament(); return; }
         await betweenHands();
       }
     } catch (e) {
@@ -120,7 +123,7 @@
     }
   }
 
-  async function playHand(table) {
+  async function playHand(table, gen) {
     const T = G.T;
     const hand = TM.makeHand(T, table).start();
     G.hand = hand; G.grades = []; G.handNo++;
@@ -142,10 +145,12 @@
     }
     FS.audio.sfx.chip(2, 0.1);
     await TV.dealIn(hand, G.heroSeat);
+    live(gen);
     renderLog(); renderOpps();
     const pfVol = new Set(), pfRaise = new Set();
     let evIdx = hand.events.length;
-    while (!hand.done && G.running) {
+    while (!hand.done) {
+      live(gen);
       const seat = hand.actor;
       TV.setActing(seat);
       TV.renderSeats(hand);
@@ -153,10 +158,12 @@
       let action;
       if (seat === G.heroSeat) {
         const A = await analyzeHero(hand);
+        live(gen);
         G.analysis = A;
         renderHintsPanel();
         FS.audio.sfx.blip(660);
         action = await heroInput(hand, A);
+        live(gen);
         const gr = CO.grade(A, action, hand, G.heroSeat);
         if (gr) { G.grades.push(gr); G.meta.grades[gr.grade] = (G.meta.grades[gr.grade] || 0) + 1; G.lastFeedback = gr; }
         G.analysis = null;
@@ -169,9 +176,9 @@
         const think = TV.dur(d.thinkMs);
         if (think > 1400 && Math.random() < 0.35) FS.audio.vox.say('hmm', voiceOf(pl.id), panOf(seat));
         await sleep(think);
+        live(gen);
         action = d.action;
       }
-      if (!G.running) return;
       if (hand.street === 'preflop') {
         const id = hand.players[seat].id;
         if (action.type === 'call' || action.type === 'raise') pfVol.add(id);
@@ -180,14 +187,14 @@
       hand.act(seat, action);
       const evs = hand.events.slice(evIdx);
       evIdx = hand.events.length;
-      await playEvents(hand, evs);
+      await playEvents(hand, evs, gen);
       if (seat === G.heroSeat) renderHintsPanel();
     }
-    if (!G.running) return;
+    live(gen);
     TV.setActing(-1);
     for (const id of pfVol) G.obs[id].vpip++;
     for (const id of pfRaise) G.obs[id].pfr++;
-    await finishHand(hand, table, pfVol, pfRaise);
+    await finishHand(hand, table, pfVol, pfRaise, gen);
   }
 
   async function analyzeHero(hand) {
@@ -203,8 +210,9 @@
   const voiceOf = (id) => (id === 'hero' ? FS.roster.HERO.voice : (FS.roster.byId[id] || {}).voice);
   const panOf = (seat) => { const d = (seat - G.heroSeat + 9) % 9; return Math.sin((90 + d * 40) * Math.PI / 180 - Math.PI / 2) * -0.6; };
 
-  async function playEvents(hand, evs) {
+  async function playEvents(hand, evs, gen) {
     for (const e of evs) {
+      live(gen);
       if (e.type === 'action') {
         TV.actionBubble(e);
         playActionSound(e, hand);
@@ -259,7 +267,7 @@
     FS.audio.vox.say('talk', voiceOf(pl.id), panOf(seat));
   }
 
-  async function finishHand(hand, table, pfVol, pfRaise) {
+  async function finishHand(hand, table, pfVol, pfRaise, gen) {
     const R = hand.results;
     const heroP = hand.players[G.heroSeat];
     // Final display
@@ -284,6 +292,7 @@
     TV.banner(bannerText, bannerSub, heroWon ? '' : 'blue', TV.dur(2300));
     await sleep(TV.dur(500));
     await TV.pushPot(R.winnings);
+    live(gen); // nothing below may touch the tournament if this game was stopped
     TV.renderSeats(hand);
     // Reactions
     const net = (s) => hand.players[s].stack - hand.players[s].startStack;
@@ -338,11 +347,11 @@
       const seat = hand.players.findIndex((p) => p && p.id === id);
       const pl = TM.player(G.T, id);
       if (id === 'hero') {
-        winners.forEach((w) => { const o = FS.store.opp(hand.players[w].id); if (o) o.knockedOutHero++; });
+        knockoutWinners(R, seat).forEach((w) => { const o = FS.store.opp(hand.players[w].id); if (o) o.knockedOutHero++; });
         FS.audio.sfx.sting();
         await TV.banner('You’re out!', `Finished ${U.ordinal(pl.finish)}${pl.prize ? ' — won ' + U.fmtMoney(pl.prize) : ''}`, 'red', TV.dur(2600));
       } else {
-        if (heroWon) FS.store.opp(id).heroKnockedOut++;
+        if (knockoutWinners(R, seat).includes(G.heroSeat)) FS.store.opp(id).heroKnockedOut++;
         talk(seat, pl, 'bust');
         toast(`${pl.name} is eliminated in ${U.ordinal(pl.finish)} place${pl.prize ? ' (' + U.fmtMoney(pl.prize) + ')' : ''}`, '', 3200);
         await sleep(TV.dur(900));
@@ -352,11 +361,18 @@
     renderLog(); renderOpps(); renderHUD();
     renderHintsPanel();
   }
+  /** Seats that won a pot the busted player was contesting (i.e. took their chips). */
+  function knockoutWinners(R, bustSeat) {
+    const out = new Set();
+    for (const pot of R.pots || []) if ((pot.eligible || []).includes(bustSeat)) for (const w of pot.winners || []) if (w !== bustSeat) out.add(w);
+    return [...out];
+  }
   function nameAt(hand, seat) { return seat === G.heroSeat ? 'You' : hand.players[seat].name; }
 
-  async function handleRoundEvents(events) {
+  async function handleRoundEvents(events, gen) {
     const T = G.T;
     for (const e of events) {
+      if (gen != null) live(gen);
       if (e.type === 'bust' && e.table !== T.heroTableId) {
         const p = TM.player(T, e.id);
         toast(`Table ${e.table}: ${p.name} busts in ${U.ordinal(p.finish)}`, '', 2600);
@@ -553,7 +569,7 @@
       if (k === 'f' && $('#ab-fold')) { e.preventDefault(); $('#ab-fold').click(); }
       else if (k === 'c' || k === 'k') { e.preventDefault(); $('#ab-call').click(); }
       else if (k === 'r' && $('#ab-raise')) { e.preventDefault(); $('#ab-raise').click(); }
-      else if (/^[1-6]$/.test(k)) { const b = $$('.presets .btn')[+k - 1]; if (b) { e.preventDefault(); b.click(); } }
+      else if (/^[1-5]$/.test(k)) { const b = $$('.presets .btn')[+k - 1]; if (b) { e.preventDefault(); b.click(); } }
     } else if (G.betweenHands && (k === ' ' || k === 'enter' || k === 'n')) { e.preventDefault(); advance(); }
     if (k === 'h') { toggleAllHints(); }
     if (k === 'escape') FS.screens.pauseMenu();
@@ -659,7 +675,7 @@
       <div style="display:flex;gap:6px;align-items:center;--cw:44px;--ch:62px;margin-bottom:10px">${FS.ui.cardsInline(rec.cards)}<span style="width:14px"></span>${FS.ui.cardsInline(rec.board)}</div>
       <pre class="prompt" style="max-height:none;font-size:12.5px;color:var(--ink)">${U.esc(rec.narrative)}</pre>
       <h3>Coach’s notes</h3>
-      ${rec.grades.length ? rec.grades.map((g) => `<div class="feedback g-${g.grade}"><div class="g">${g.street.toUpperCase()}: ${g.grade.toUpperCase()} — you ${g.took}, coach: ${U.esc(g.rec)}</div>${CO.glossaryHTML(g.text)}</div>`).join('') : '<p class="muted">You didn’t make any decisions this hand (folded before acting or everyone else acted first).</p>'}
+      ${rec.grades.length ? rec.grades.map((g) => { const gr = ['good', 'ok', 'mistake', 'blunder'].includes(g.grade) ? g.grade : 'ok'; return `<div class="feedback g-${gr}"><div class="g">${U.esc(String(g.street || '').toUpperCase())}: ${gr.toUpperCase()} — you ${U.esc(g.took)}, coach: ${U.esc(g.rec)}</div>${CO.glossaryHTML(g.text)}</div>`; }).join('') : '<p class="muted">You didn’t make any decisions this hand (folded before acting or everyone else acted first).</p>'}
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="btn gold" id="rv-ask">Ask the AI coach about this hand</button></div>
     </div>`);
     const m = modal(`Hand #${rec.no} review`, body);
@@ -747,9 +763,7 @@
     else if (cfg.endpoint) { led.className = 'led on'; route.textContent = `AI coach ${FS.native && FS.native.available ? 'connected' : 'direct'} · ${cfg.model || 'default model'}`; }
     else { led.className = 'led warn'; route.textContent = 'AI not connected — using built-in coach'; }
   }
-  function mdLite(s) {
-    return U.esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/^#{1,4}\s*(.+)$/gm, '<b>$1</b>');
-  }
+  const mdLite = CO.mdLite;
   function msgEl(role, content, meta) {
     if (role === 'user') { const d = h('<div class="msg user"></div>'); d.textContent = content; return d; }
     return h(`<div class="msg bot ${meta === 'err' ? 'err' : ''}"><span class="who">${meta === 'builtin' ? 'BUILT-IN COACH' : meta === 'err' ? 'COACH (error)' : 'AI COACH'}</span>${mdLite(content)}</div>`);
@@ -775,20 +789,23 @@
       typing.replaceWith(msgEl('assistant', r.reply));
     } catch (e) {
       let text, meta = 'err';
-      if (e.message === 'NOT_CONFIGURED' || /No AI endpoint configured/.test(e.message)) { text = builtinAnswer() + '\n\n(Connect a real AI in Settings → AI Coach for free-form answers.)'; meta = 'builtin'; }
+      if (e.message === 'NOT_CONFIGURED') { text = builtinAnswer() + '\n\n(Connect a real AI in Settings → AI Coach for free-form answers.)'; meta = 'builtin'; }
       else text = e.message + '\n\nMeanwhile, the built-in coach says:\n' + builtinAnswer();
       G.chat.push({ role: 'assistant', content: text, meta });
       typing.replaceWith(msgEl('assistant', text, meta));
     }
     log.scrollTop = log.scrollHeight;
-    saveProgress();
+    // Only persist between hands: mid-hand the tournament state already includes this hand's
+    // side effects (button moved, stats counted), so saving now would replay them on Continue.
+    // The chat is saved with the next between-hands save.
+    if (!G.hand || G.betweenHands) saveProgress();
   }
   function builtinAnswer() {
     const hand = G.hand;
     if (!hand) return 'No hand in progress.';
     const A = G.analysis;
     const ctx = { A, T: G.T, hand, heroSeat: G.heroSeat, profiles: profileFor };
-    const strip = (s) => s.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, k, sh) => sh || k);
+    const strip = CO.stripTerms;
     const parts = [];
     if (A) {
       const rec = CO.recommendation(ctx);

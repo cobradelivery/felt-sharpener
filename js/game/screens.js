@@ -167,8 +167,7 @@
     };
   }
   function glossaryModal() {
-    const G = FS.coach.GLOSSARY;
-    modal('Glossary', `<table class="grid">${Object.keys(G).sort((a, b) => a.localeCompare(b)).map((k) => `<tr><td style="white-space:nowrap"><b>${U.esc(k)}</b></td><td>${U.esc(G[k])}</td></tr>`).join('')}</table>`, { wide: true });
+    modal('Glossary', FS.coach.glossaryTableHTML(), { wide: true });
   }
 
   function lobby() {
@@ -223,7 +222,7 @@
         <div class="form-row"><label>Auto-deal next hand</label><span class="switch ${s.autoAdvance ? 'on' : ''}" data-b="autoAdvance"></span></div>
         <div class="form-row"><label>Confirm all-in</label><span class="switch ${s.confirmAllIn ? 'on' : ''}" data-b="confirmAllIn"></span></div>
         <div class="form-row"><label>Four-color deck</label><span class="switch ${s.fourColor ? 'on' : ''}" data-b="fourColor"></span></div>
-        <p class="small-note">Keyboard: F fold · C check/call · R bet/raise · 1–6 bet-size presets · Space next hand · H hints · Esc menu.</p>
+        <p class="small-note">Keyboard: F fold · C check/call · R bet/raise · 1–5 bet-size presets · Space next hand · H hints · Esc menu.</p>
       </div>
       <div data-p="coach">
         <p class="small-note">Turn coaching down as you improve. These are the same switches as in the Coach panel.</p>
@@ -299,7 +298,7 @@
       }
     };
     $('#reset-stats', body).onclick = () => { if (confirm('Reset all stats, hand histories and opponent records?')) { FS.store.resetStatsKeepSettings(); toast('Stats reset'); m.close(); } };
-    $('#reset-all', body).onclick = () => { if (confirm('Erase ALL data, including settings and any tournament in progress?')) { FS.game.stop(); FS.store.reset(); location.reload(); } };
+    $('#reset-all', body).onclick = () => { if (confirm('Erase ALL data, including settings, saved tournaments and any tournament in progress?')) { FS.game.stop(); FS.store.reset(); location.reload(); } };
   }
 
   // ---------- roster ----------

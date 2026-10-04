@@ -44,7 +44,7 @@
 
   function fmtChips(n) {
     n = Math.round(n);
-    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(n % 1e6 === 0 ? 0 : 2).replace(/\.?0+$/, '') + 'M';
+    if (Math.abs(n) >= 999500) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'M'; // 10.00 -> 10, 2.50 -> 2.5
     if (Math.abs(n) >= 1e5) return (n / 1e3).toFixed(0) + 'K';
     return n.toLocaleString('en-US');
   }

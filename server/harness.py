@@ -60,13 +60,29 @@ def build_messages(question, history, context):
     return msgs
 
 
+class NotConfigured(ValueError):
+    pass
+
+
+def parse_temperature(value, default=0.2):
+    try:
+        t = float(value)
+    except (TypeError, ValueError):
+        return default
+    return min(2.0, max(0.0, t))
+
+
 def call_llm(config, messages):
-    endpoint = normalize_endpoint(config.get("endpoint") or os.environ.get("FELT_LLM_ENDPOINT", ""))
+    env_endpoint = normalize_endpoint(os.environ.get("FELT_LLM_ENDPOINT", ""))
+    endpoint = normalize_endpoint(config.get("endpoint") or "") or env_endpoint
     if not endpoint:
-        raise ValueError("No AI endpoint configured. Add one in Settings → AI Coach (or set FELT_LLM_ENDPOINT).")
-    api_key = config.get("apiKey") or os.environ.get("FELT_LLM_API_KEY", "")
+        raise NotConfigured("No AI endpoint configured. Add one in Settings → AI Coach (or set FELT_LLM_ENDPOINT).")
+    api_key = config.get("apiKey") or ""
+    # The environment's key is only ever sent to the environment's endpoint, never to one named by a request.
+    if not api_key and env_endpoint and endpoint == env_endpoint:
+        api_key = os.environ.get("FELT_LLM_API_KEY", "")
     model = config.get("model") or os.environ.get("FELT_LLM_MODEL", "") or "gpt-4o-mini"
-    payload = {"model": model, "messages": messages, "temperature": float(config.get("temperature", 0.4))}
+    payload = {"model": model, "messages": messages, "temperature": parse_temperature(config.get("temperature"))}
     req = urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"), method="POST")
     req.add_header("Content-Type", "application/json")
     if api_key:
@@ -90,8 +106,8 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=ROOT, **kw)
 
-    def log_message(self, fmt, *args):  # quieter console
-        if "/api/" in (args[0] if args else ""):
+    def log_message(self, fmt, *args):  # quieter console (args[0] is an int for error logs)
+        if args and "/api/" in str(args[0]):
             sys.stderr.write("[harness] " + (fmt % args) + "\n")
 
     def _json(self, code, obj):
@@ -108,6 +124,14 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
+    def _same_origin(self):
+        """True when the request has no Origin (same-origin GET/curl) or comes from this server's own address."""
+        origin = self.headers.get("Origin")
+        if not origin:
+            return True
+        host = self.headers.get("Host", "")
+        return origin in ("http://" + host, "https://" + host)
+
     def do_GET(self):
         if self.path == "/api/health":
             return self._json(200, {"ok": True, "harness": "felt-sharpener", "envEndpoint": bool(os.environ.get("FELT_LLM_ENDPOINT"))})
@@ -118,6 +142,11 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/api/coach":
             return self._json(404, {"error": "not found"})
+        # Only the game itself may use the coach endpoint: block cross-site requests from other pages.
+        if not self._same_origin():
+            return self._json(403, {"error": "cross-origin request refused"})
+        if (self.headers.get("Content-Type") or "").split(";")[0].strip().lower() != "application/json":
+            return self._json(415, {"error": "Content-Type must be application/json"})
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > MAX_BODY:
             return self._json(413, {"error": "request too large"})
@@ -126,6 +155,8 @@ class Handler(SimpleHTTPRequestHandler):
             messages = build_messages(body.get("question", ""), body.get("history"), body.get("context"))
             result = call_llm(body.get("config") or {}, messages)
             return self._json(200, result)
+        except NotConfigured as e:
+            return self._json(400, {"error": str(e), "code": "NOT_CONFIGURED"})
         except ValueError as e:
             return self._json(400, {"error": str(e)})
         except Exception as e:  # noqa: BLE001 — report any upstream failure to the UI
