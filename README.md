@@ -55,9 +55,19 @@ android/build.sh
 ```
 
 The script bundles `index.html`, `css/` and `js/` into the app unchanged, so any change to the game is
-picked up on the next build. It signs with `android/felt-sharpener.keystore` (password
-`feltsharpener`). Keep using that key so new builds install over the old one without losing your
-progress.
+picked up on the next build.
+
+**Signing key.** The APK is signed with a private key that is **not** in this repository (keys are
+git-ignored). Supply it when building:
+
+```sh
+KEYSTORE=/path/to/felt-sharpener-key.keystore KS_PASS="$(cat /path/to/felt-sharpener-key.keystore.pass)" android/build.sh
+# or copy them to android/release.keystore and android/release.keystore.pass, then just run android/build.sh
+```
+
+Keep the key and password private and backed up. Android only accepts an update signed with the same key
+as the installed app. If you lose the key, you must uninstall (export your saved tournaments first) and
+reinstall a build signed with a new one. Without a key, `build.sh` stops and prints how to create one.
 
 ## What's inside
 

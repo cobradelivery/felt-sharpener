@@ -5,3 +5,9 @@ __pycache__/
 android/build/
 android/.icon.html
 android/*.idsig
+
+# Android signing keys must never be committed
+*.keystore
+*.jks
+*.keystore.pass
+android/release.keystore*
