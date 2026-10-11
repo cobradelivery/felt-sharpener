@@ -49,8 +49,8 @@
 
   const ITEMS = [
     { id: 'parachute', name: 'Parachute', price: 3000, qty: 2, desc: 'Opens automatically when you fall. No fall damage.' },
-    { id: 'shield', name: 'Shield', price: 8000, qty: 3, strength: 50, desc: 'Absorbs 50 damage. Use on your turn (free action).' },
-    { id: 'heavyshield', name: 'Heavy Shield', price: 15000, qty: 2, strength: 110, desc: 'Absorbs 110 damage.' },
+    { id: 'shield', name: 'Shield', price: 8000, qty: 3, strength: 40, desc: 'Absorbs 40 damage. Use on your turn (free action).' },
+    { id: 'heavyshield', name: 'Heavy Shield', price: 15000, qty: 2, strength: 80, desc: 'Absorbs 80 damage. Use on your turn (free action).' },
     { id: 'battery', name: 'Battery', price: 4000, qty: 5, heal: 15, desc: 'Repairs 15 health. Use on your turn (free action).' },
     { id: 'fuel', name: 'Fuel', price: 3000, qty: 100, desc: 'Lets you drive your tank. Uphill burns more.' },
   ];

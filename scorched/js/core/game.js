@@ -383,7 +383,7 @@
         case 'tracer': this.emit('fizzle', { x: hit.x, y: hit.y }); return false;
         case 'dirt': this.terrain.fill(hit.px, hit.py, w.radius, rng); this.emit('dirt', { x: hit.px, y: hit.py, r: w.radius }); return false;
         case 'funky': {
-          this.explode(hit.x, hit.y, w.radius, w.damage, o, w);
+          this.explode(hit.x, hit.y, w.radius, w.damage, o, w, hit.tank);
           const b = { id: 'funky-b', name: 'Bomblet', kind: 'blast', radius: w.bombletRadius, damage: w.bombletDamage };
           for (let i = 0; i < w.bomblets; i++) {
             const a = rng.range(25, 155) * DEG, v = rng.range(110, 300);
@@ -392,7 +392,7 @@
           return false;
         }
         case 'leapfrog': {
-          this.explode(hit.x, hit.y, w.radius, w.damage, o, w);
+          this.explode(hit.x, hit.y, w.radius, w.damage, o, w, hit.tank);
           if (p.bounces < w.bounces - 1) {
             const c = this.spawnShell(hit.px, hit.py - 3, p.vx * 0.8, -Math.max(120, Math.abs(p.vy) * 0.55), w, o);
             c.bounces = p.bounces + 1;
@@ -400,7 +400,7 @@
           return false;
         }
         case 'roller': {
-          if (hit.tank) { this.explode(hit.x, hit.y, w.radius, w.damage, o, w); return false; }
+          if (hit.tank) { this.explode(hit.x, hit.y, w.radius, w.damage, o, w, hit.tank); return false; }
           const x = hit.px, s = (dx) => this.terrain.surface(x + dx, hit.py - 20);
           const l = s(-5), r = s(5);
           p.kind = 'roller'; p.x = x; p.y = s(0) - 3; p.age = 0;
@@ -419,7 +419,7 @@
           return false;
         }
         case 'napalm': {
-          this.explode(hit.x, hit.y, w.radius, w.damage, o, w);
+          this.explode(hit.x, hit.y, w.radius, w.damage, o, w, hit.tank);
           for (let i = 0; i < w.flames; i++) {
             this.flames.push({ x: hit.px + rng.range(-4, 4), y: hit.py - 2, vx: rng.range(-70, 70) + p.vx * 0.1, vy: rng.range(-120, -20),
               ground: false, life: rng.range(3, 5.5), weapon: w, owner: o, seed: rng() });
@@ -427,7 +427,7 @@
           this.emit('napalm', { x: hit.x, y: hit.y });
           return false;
         }
-        default: this.explode(hit.x, hit.y, w.radius, w.damage, o, w); return false;
+        default: this.explode(hit.x, hit.y, w.radius, w.damage, o, w, hit.tank); return false;
       }
     }
 
@@ -450,11 +450,11 @@
       for (const t of this.players) {
         if (!t.alive) continue;
         const d = Math.hypot(p.x - t.x, p.y - (t.y - C.TANK_H / 2));
-        if (d < (t.shield > 0 ? C.SHIELD_R : C.TANK_R + 3) && (t !== p.owner || p.age > 0.5)) return this.rollerBoom(p);
+        if (d < (t.shield > 0 ? C.SHIELD_R : C.TANK_R + 3) && (t !== p.owner || p.age > 0.5)) return this.rollerBoom(p, t);
       }
       return true;
     }
-    rollerBoom(p) { this.explode(p.x, p.y, p.weapon.radius, p.weapon.damage, p.owner, p.weapon); return false; }
+    rollerBoom(p, direct) { this.explode(p.x, p.y, p.weapon.radius, p.weapon.damage, p.owner, p.weapon, direct); return false; }
 
     stepDigger(p, dt) {
       const w = p.weapon, sp = 110 * dt;
@@ -471,9 +471,10 @@
       return true;
     }
 
-    explode(x, y, r, dmg, owner, weapon) {
+    /** `direct` is the tank the warhead struck (body or shield): it takes the full damage. */
+    explode(x, y, r, dmg, owner, weapon, direct) {
       const grow = 0.12 + r / 280;
-      this.explosions.push({ x, y, r, dmg, owner, weapon, t: 0, grow, life: grow + 0.35, applied: false });
+      this.explosions.push({ x, y, r, dmg, owner, weapon, direct: direct || null, t: 0, grow, life: grow + 0.35, applied: false });
       this.emit('launchBoom', { x, y, r });
     }
 
@@ -494,7 +495,9 @@
       if (!e.dmg) return;
       for (const t of this.players) {
         if (!t.alive) continue;
-        const d = Math.hypot(e.x - t.x, e.y - (t.y - C.TANK_H / 2));
+        // A warhead that hits a shield bursts at its edge, so without this a shielded tank
+        // would only ever take glancing damage.
+        const d = t === e.direct ? 0 : Math.hypot(e.x - t.x, e.y - (t.y - C.TANK_H / 2));
         const reach = e.r + C.TANK_R;
         if (d >= reach) continue;
         const dmg = e.dmg * clamp(1.15 - d / reach, 0, 1);
@@ -508,6 +511,7 @@
       if (t.shield > 0) {
         const absorbed = Math.min(t.shield, amount);
         t.shield -= absorbed; amount -= absorbed;
+        this.emit('shieldHit', { player: t, amount: absorbed });
         if (t.shield <= 0.01) { t.shield = 0; this.emit('shieldDown', { player: t }); }
       }
       if (amount <= 0) return;

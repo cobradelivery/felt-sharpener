@@ -89,11 +89,11 @@
           this.particles.push({ x: d.x, y: d.y, vx: Math.cos(a) * 90, vy: Math.sin(a) * 90 - 40, life: 0.6, max: 0.6, kind: 'dirt', size: 2 });
         }
       }
-      if (type === 'hit') {
-        const p = d.player;
-        const tx = this.texts.find((t) => t.id === p.id && t.age < 0.6);
+      if (type === 'hit' || type === 'shieldHit') {
+        const p = d.player, shield = type === 'shieldHit';
+        const tx = this.texts.find((t) => t.id === p.id && t.shield === shield && t.age < 0.6);
         if (tx) { tx.amount += d.amount; tx.age = Math.min(tx.age, 0.2); }
-        else this.texts.push({ id: p.id, x: p.x, y: p.y - 26, amount: d.amount, age: 0, color: p.color });
+        else this.texts.push({ id: p.id, shield, x: p.x + (shield ? -14 : 0), y: p.y - (shield ? 38 : 26), amount: d.amount, age: 0 });
       }
       if (type === 'death') {
         const p = d.player;
@@ -238,10 +238,14 @@
       ctx.fillStyle = '#222'; ctx.beginPath(); ctx.roundRect(x - 10.5, y - 4, 21, 4.5, 2.2); ctx.fill();
       ctx.fillStyle = '#555'; for (let i = -8; i <= 8; i += 4) ctx.fillRect(x + i - 0.6, y - 2.6, 1.2, 1.6);
       // Health bar (when hurt) and the active marker.
-      if (t.health < C.MAX_HEALTH) {
+      if (t.health < C.MAX_HEALTH || t.shield > 0) {
         ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - 11, y - 22, 22, 3.5);
         ctx.fillStyle = t.health > 50 ? '#5fe05f' : t.health > 25 ? '#f0c040' : '#f04040';
         ctx.fillRect(x - 10.5, y - 21.5, 21 * (t.health / C.MAX_HEALTH), 2.5);
+      }
+      if (t.shield > 0) { // remaining shield strength
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - 11, y - 26.5, 22, 3.5);
+        ctx.fillStyle = '#7fe3ff'; ctx.fillRect(x - 10.5, y - 26, 21 * (t.shield / Math.max(1, t.shieldMax)), 2.5);
       }
       if (active) {
         const bob = Math.sin(this.game.time * 6) * 3;
@@ -342,8 +346,8 @@
       for (const t of this.texts) {
         const a = clamp(1.6 - t.age, 0, 1);
         ctx.globalAlpha = a; ctx.lineWidth = 3; ctx.strokeStyle = '#000';
-        const s = '-' + Math.max(1, Math.round(t.amount));
-        ctx.strokeText(s, t.x, t.y); ctx.fillStyle = '#ffdf5a'; ctx.fillText(s, t.x, t.y);
+        const s = (t.shield ? '⛨ -' : '-') + Math.max(1, Math.round(t.amount));
+        ctx.strokeText(s, t.x, t.y); ctx.fillStyle = t.shield ? '#8eeaff' : '#ffdf5a'; ctx.fillText(s, t.x, t.y);
       }
       ctx.globalAlpha = 1;
     }

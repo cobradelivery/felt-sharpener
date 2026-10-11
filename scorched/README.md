@@ -53,7 +53,7 @@ or Safari. All graphics and sound are generated in code.
 | Dirt Clod, Dirt Ball, Ton of Dirt | Add ground. Bury an enemy so their shots blow up in their face, or build cover. |
 | Tracer | Harmless test shot. |
 
-**Items:** Parachute (automatic), Shield and Heavy Shield (absorb 50 / 110 damage), Battery (+15 health),
+**Items:** Parachute (automatic), Shield and Heavy Shield (absorb 40 / 80 damage; a direct hit on the bubble counts in full), Battery (+15 health),
 Fuel (lets you drive).
 
 ## CPU opponents

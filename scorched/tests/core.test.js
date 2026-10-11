@@ -98,6 +98,22 @@ test('shields absorb damage before health', () => {
   assert.strictEqual(b.shield, 0); assert.strictEqual(b.health, 90);
 });
 
+test('a direct hit on a shield does full damage, so shields break', () => {
+  const g = duel();
+  const [a, b] = g.players;
+  const shield = SE.weapons.get('shield').strength;
+  b.shield = b.shieldMax = shield;
+  const s = SE.ai.solve(g, a, b, 0, 0);
+  assert.strictEqual(s.miss, 0);
+  a.inv.missile = 1; g.selectWeapon('missile'); g.setAim(s.angle, s.power); g.fire();
+  let absorbed = 0; g.on((t, d) => { if (t === 'shieldHit') absorbed += d.amount; });
+  runUntilIdle(g);
+  const dmg = SE.weapons.get('missile').damage;
+  assert.strictEqual(b.shield, 0, 'a missile should break a regular shield');
+  assert.strictEqual(Math.round(absorbed), shield);
+  assert.strictEqual(Math.round(100 - b.health), dmg - shield, 'the overflow goes through');
+});
+
 test('falling: damage without a parachute, none with one', () => {
   for (const chute of [0, 1]) {
     const g = duel();
