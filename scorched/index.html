@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scorched — Artillery on Destructible Ground</title>
+<meta name="description" content="A modern browser remake of the classic DOS artillery game: tanks, gravity, wind, destructible procedurally generated terrain and a weapons shop.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23201028'/%3E%3Ccircle cx='40' cy='22' r='12' fill='%23ffb030'/%3E%3Cpath d='M0 64 L0 46 Q16 34 30 44 T64 40 L64 64Z' fill='%23a8441f'/%3E%3Crect x='12' y='38' width='16' height='6' rx='2' fill='%2350d0ff'/%3E%3Cpath d='M20 38 L30 28' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage">
+  <div id="frame">
+    <canvas id="view" aria-label="Battlefield"></canvas>
+
+    <header id="hud" class="hidden" aria-label="Controls">
+      <div class="hud-group who">
+        <span class="swatch" id="hud-swatch"></span>
+        <div class="who-text"><b id="hud-name">Player</b><small id="hud-cash">$0</small></div>
+      </div>
+      <div class="hud-group aim">
+        <label>Angle</label>
+        <button class="hb" data-act="angle+" title="Rotate left (←)">◀</button>
+        <output id="hud-angle">45°</output>
+        <button class="hb" data-act="angle-" title="Rotate right (→)">▶</button>
+      </div>
+      <div class="hud-group aim">
+        <label>Power</label>
+        <button class="hb" data-act="power-" title="Less power (↓)">−</button>
+        <div class="power"><div class="power-max" id="hud-pmax"></div><div class="power-fill" id="hud-power-bar"></div><output id="hud-power">500</output></div>
+        <button class="hb" data-act="power+" title="More power (↑)">+</button>
+      </div>
+      <div class="hud-group weapon">
+        <button class="hb" data-act="weapon-" title="Previous weapon (Shift+Tab)">‹</button>
+        <canvas id="hud-wicon" width="28" height="28"></canvas>
+        <div class="w-text"><b id="hud-wname">Baby Missile</b><small id="hud-wcount">∞</small></div>
+        <button class="hb" data-act="weapon+" title="Next weapon (Tab)">›</button>
+      </div>
+      <div class="hud-group items" id="hud-items"></div>
+      <div class="hud-group info">
+        <div class="wind" title="Wind"><span id="hud-wind-arrow">→</span><b id="hud-wind">0</b></div>
+        <small id="hud-round">Round 1/5</small>
+      </div>
+      <button class="fire" id="hud-fire" data-act="fire" title="Fire (Space)">FIRE</button>
+      <button class="hb menu-btn" data-act="pause" title="Menu (Esc)">☰</button>
+    </header>
+
+    <div id="banner" class="banner"></div>
+  </div>
+
+  <!-- MAIN MENU / SETUP -->
+  <section id="scr-menu" class="overlay active" aria-label="Main menu">
+    <div class="menu-wrap">
+      <h1 class="logo"><span>SCORCHED</span><small>artillery on destructible ground</small></h1>
+      <div class="panel setup">
+        <div class="setup-cols">
+          <div class="col">
+            <h2>Players</h2>
+            <div id="setup-players"></div>
+            <button class="btn ghost" id="add-player">+ Add player</button>
+          </div>
+          <div class="col">
+            <h2>Rules</h2>
+            <div id="setup-opts" class="opts"></div>
+          </div>
+        </div>
+        <div class="setup-foot">
+          <p class="keys">← → angle · ↑ ↓ power (hold Shift for fine) · drag on the field to aim · Space fire · Tab weapon · S shield · B battery · A D drive · hold F fast-forward · M mute · Esc menu</p>
+          <button class="btn primary big" id="start-game">START WAR</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOP -->
+  <section id="scr-shop" class="overlay" aria-label="Weapons shop">
+    <div class="panel shop">
+      <div class="shop-head">
+        <span class="swatch" id="shop-swatch"></span>
+        <div><h2 id="shop-title">Shop</h2><small id="shop-sub"></small></div>
+        <div class="cash" id="shop-cash">$0</div>
+      </div>
+      <div class="tabs" id="shop-tabs">
+        <button class="tab active" data-tab="weapon">Weapons</button><button class="tab" data-tab="item">Defense &amp; items</button>
+      </div>
+      <div class="shop-grid" id="shop-grid"></div>
+      <div class="shop-foot"><span class="hint" id="shop-hint">Prices buy a bundle. Sell back at half price.</span><button class="btn primary" id="shop-done">Done</button></div>
+    </div>
+  </section>
+
+  <!-- ROUND RESULTS / GAME OVER -->
+  <section id="scr-results" class="overlay" aria-label="Results">
+    <div class="panel results">
+      <h2 id="res-title">Round over</h2>
+      <p id="res-sub"></p>
+      <table class="standings"><thead><tr><th></th><th>Player</th><th>Damage</th><th>Kills</th><th>Earned</th><th>Cash</th><th>Wins</th><th>Score</th></tr></thead><tbody id="res-body"></tbody></table>
+      <div class="res-foot" id="res-foot"></div>
+    </div>
+  </section>
+
+  <!-- PAUSE -->
+  <section id="scr-pause" class="overlay" aria-label="Paused">
+    <div class="panel pause">
+      <h2>Paused</h2>
+      <button class="btn primary" id="p-resume">Resume</button>
+      <button class="btn" id="p-sound">Sound: on</button>
+      <button class="btn" id="p-skip">Skip turn</button>
+      <button class="btn danger" id="p-quit">Quit to menu</button>
+      <p class="keys">← → angle · ↑ ↓ power · Shift = fine · drag to aim · Space fire · Tab / Shift+Tab weapon · S shield · B battery · A D drive · hold F fast-forward · M mute</p>
+    </div>
+  </section>
+</div>
+
+<script src="js/core/util.js"></script>
+<script src="js/core/terrain.js"></script>
+<script src="js/core/weapons.js"></script>
+<script src="js/core/game.js"></script>
+<script src="js/core/ai.js"></script>
+<script src="js/game/audio.js"></script>
+<script src="js/game/render.js"></script>
+<script src="js/game/ui.js"></script>
+<script src="js/game/main.js"></script>
+</body>
+</html>
