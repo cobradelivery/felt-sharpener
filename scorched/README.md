@@ -26,12 +26,13 @@ or Safari. All graphics and sound are generated in code.
 | Shield / battery | `S` / `B` (free actions) | item buttons |
 | Drive (needs fuel) | `A` `D` | ◀ ▶ beside the fuel can |
 | Fast-forward CPU turns | hold `F` | |
+| 3× speed once every human is out | `F` toggles | ⏩ button |
 | Mute / menu | `M` / `Esc` | ☰ |
 
 **Rules of the battlefield**
 
 - Dirt falls. Blow a hole under a tank and it drops. Falls hurt unless you own a **parachute**.
-- A damaged tank loses range: max power is 300 + 7 × health.
+- Damage never reduces your power, so a battered tank can always hit back.
 - Explosions hurt your own tank too, and a destroyed tank explodes and can hurt its neighbours.
 - Wind varies per round, and can shift every turn. Walls can be open, wrap around or bounce.
 - Your previous shot's path stays on screen as a dotted line while you aim.

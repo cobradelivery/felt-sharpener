@@ -10,6 +10,8 @@
 
   const canvas = $('view');
   const renderer = new SE.render.Renderer(canvas);
+  let speedUp = false;
+  try { speedUp = localStorage.getItem('scorched.speedUp') === '1'; } catch (e) { /* storage blocked */ }
   const app = { game: null, demo: null, paused: false, setup: ui.loadSetup(), shopQueue: [], resultsTimer: 0 };
   root.SE.app = app; // handy for debugging and the e2e tests
 
@@ -90,20 +92,28 @@
       case 'split': A.play('split'); break;
       case 'napalm': A.play('napalm'); break;
       case 'dig': A.play('dig'); break;
-      case 'death': A.play('death'); ui.banner(`${d.player.name} destroyed!`, d.player.color, 1100); break;
+      case 'death': {
+        A.play('death');
+        ui.banner(ui.isYou(d.player) ? 'You were destroyed!' : `${d.player.name} was destroyed!`, d.player.color, 1100);
+        if (!d.player.ai && spectating(game) && game.alive().length > 1) {
+          const out = game.players.filter((p) => !p.ai).length > 1 ? 'All humans are out' : (ui.isYou(d.player) ? "You're out" : `${d.player.name} is out`);
+          setTimeout(() => { if (spectating(game)) ui.banner(`${out}. ⏩ (F) speeds up the rest of the round`, '#9fe0ff', 2600); }, 1300);
+        }
+        break;
+      }
       case 'chute': A.play('chute'); break;
       case 'item': A.play(d.id === 'battery' ? 'buy' : 'shield'); break;
       case 'roundStart': ui.banner(`Round ${d.round}`, '#ffc23d', 1200); break;
       case 'turn': {
         if (d.player.ai) break;
         A.play('turn');
-        if (game.players.filter((p) => !p.ai).length > 1 || game.turns > 1) setTimeout(() => { if (game.current === d.player && game.phase === 'aim') ui.banner(`${d.player.name}'s turn`, d.player.color, 900); }, game.turns === 1 ? 1300 : 0);
+        if (game.players.filter((p) => !p.ai).length > 1 || game.turns > 1) setTimeout(() => { if (game.current === d.player && game.phase === 'aim') ui.banner(ui.isYou(d.player) ? 'Your turn' : `${d.player.name}'s turn`, d.player.color, 900); }, game.turns === 1 ? 1300 : 0);
         break;
       }
       case 'roundOver': {
         const winner = d.winner != null ? game.players[d.winner] : null;
         if (winner && !winner.ai) A.play('win');
-        ui.banner(winner ? `${winner.name} wins the round!` : 'Mutual destruction!', winner ? winner.color : '#fff', 1800);
+        ui.banner(!winner ? 'Mutual destruction!' : ui.isYou(winner) ? 'You win the round!' : `${winner.name} wins the round!`, winner ? winner.color : '#fff', 1800);
         app.resultsTimer = setTimeout(() => showResults(game, d), 2000);
         break;
       }
@@ -141,6 +151,23 @@
   $('p-quit').onclick = () => { app.game = null; toMenu(); };
 
   // ---------- input ----------
+
+  /** True while a round is still being fought but no human tank is left in it. */
+  function spectating(g) {
+    return !!g && g === app.game && (g.phase === 'aim' || g.phase === 'flight') && !g.players.some((p) => !p.ai && p.alive);
+  }
+  function setSpeedUp(on) {
+    speedUp = !!on;
+    try { localStorage.setItem('scorched.speedUp', speedUp ? '1' : '0'); } catch (e) { /* storage blocked */ }
+    SE.audio.play('click');
+  }
+  function syncSpeedButton() {
+    const g = app.game, spec = spectating(g), b = $('hud-speed');
+    $('hud').classList.toggle('spectating', spec);
+    b.classList.toggle('hidden', !spec);
+    b.textContent = speedUp ? '⏩ 3×' : '⏩ 1×';
+    b.setAttribute('aria-pressed', String(speedUp));
+  }
 
   const humanTurn = () => { const g = app.game; return g && !app.paused && g.canAct() && !g.current.ai && !document.querySelector('.overlay.active'); };
 
@@ -196,7 +223,7 @@
     if (document.activeElement && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
     if (e.code === 'Escape' || e.code === 'KeyP') { if (app.game && app.game.phase !== 'roundOver' && app.game.phase !== 'gameOver' && !document.querySelector('#scr-shop.active, #scr-results.active')) setPaused(!app.paused); return; }
     if (e.code === 'KeyM') { SE.audio.setMuted(!SE.audio.isMuted()); ui.banner(SE.audio.isMuted() ? 'Sound off' : 'Sound on', '#fff', 700); return; }
-    if (e.code === 'KeyF') { fastForward = true; return; }
+    if (e.code === 'KeyF') { if (spectating(app.game)) { if (!e.repeat) setSpeedUp(!speedUp); } else fastForward = true; return; }
     if (e.code === 'Tab') { e.preventDefault(); if (!e.repeat) press(e.shiftKey ? 'weapon-' : 'weapon+'); return; }
     const act = KEYMAP[e.code];
     if (!act) return;
@@ -219,6 +246,7 @@
     const b = e.target.closest('[data-act]'); if (!b) return;
     const act = b.dataset.act;
     if (act === 'pause') { setPaused(true); return; }
+    if (act === 'speed') { e.preventDefault(); setSpeedUp(!speedUp); return; }
     e.preventDefault();
     press(act, false);
     if (RATES[act]) {
@@ -256,10 +284,11 @@
     if (g && !app.paused) {
       tickHeld(dt);
       const aiTurnOrFlight = app.game && (g.phase === 'flight' || (g.current && g.current.ai));
-      g.update(dt * (fastForward && aiTurnOrFlight ? 3 : 1));
+      const fast = (spectating(g) && speedUp) || (fastForward && aiTurnOrFlight);
+      g.update(dt * (fast ? 3 : 1));
       renderer.showAim = true;
       renderer.draw(dt);
-      if (app.game) ui.updateHud(app.game);
+      if (app.game) { ui.updateHud(app.game); syncSpeedButton(); }
     } else if (g) renderer.draw(0);
     requestAnimationFrame(frame);
   }

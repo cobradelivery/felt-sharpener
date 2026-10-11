@@ -27,7 +27,7 @@
       <div class="hud-group aim">
         <label>Power</label>
         <button class="hb" data-act="power-" title="Less power (↓)">−</button>
-        <div class="power"><div class="power-max" id="hud-pmax"></div><div class="power-fill" id="hud-power-bar"></div><output id="hud-power">500</output></div>
+        <div class="power"><div class="power-fill" id="hud-power-bar"></div><output id="hud-power">500</output></div>
         <button class="hb" data-act="power+" title="More power (↑)">+</button>
       </div>
       <div class="hud-group weapon">
@@ -42,6 +42,7 @@
         <small id="hud-round">Round 1/5</small>
       </div>
       <button class="fire" id="hud-fire" data-act="fire" title="Fire (Space)">FIRE</button>
+      <button class="speed hidden" id="hud-speed" data-act="speed" title="Speed up the rest of the round (F)" aria-pressed="false">⏩ 1×</button>
       <button class="hb menu-btn" data-act="pause" title="Menu (Esc)">☰</button>
     </header>
 
@@ -65,7 +66,7 @@
           </div>
         </div>
         <div class="setup-foot">
-          <p class="keys">← → angle · ↑ ↓ power (hold Shift for fine) · drag on the field to aim · Space fire · Tab weapon · S shield · B battery · A D drive · hold F fast-forward · M mute · Esc menu</p>
+          <p class="keys">← → angle · ↑ ↓ power (hold Shift for fine) · drag on the field to aim · Space fire · Tab weapon · S shield · B battery · A D drive · hold F fast-forward (F toggles 3× once you're out) · M mute · Esc menu</p>
           <button class="btn primary big" id="start-game">START WAR</button>
         </div>
       </div>

@@ -18,7 +18,7 @@
     WIND_ACCEL: 0.5,       // px/s² per wind unit
     TANK_HALF: 10, TANK_H: 9, TANK_R: 11, SHIELD_R: 22,
     BARREL: 13, PIVOT_UP: 8,
-    MAX_HEALTH: 100,
+    MAX_HEALTH: 100, MAX_POWER: 1000,
     FALL_SAFE: 20, FALL_DMG: 0.45, CHUTE_AT: 14, CHUTE_SPEED: 45,
     DRIVE_SPEED: 40, CLIMB_MAX: 5,
     SETTLE_PASSES: 3,
@@ -123,7 +123,7 @@
     get current() { return this.order ? this.order[this.turnIdx] : null; }
     alive() { return this.players.filter((p) => p.alive); }
     world() { return { terrain: this.terrain, tanks: this.players, wind: this.wind, walls: this.opts.walls }; }
-    maxPower(t) { return Math.round(300 + t.health * 7); } // damaged tanks lose range
+    maxPower() { return C.MAX_POWER; } // damage never limits power, so a hurt tank can still hit back
 
     // ----- rounds -----
 
@@ -521,7 +521,6 @@
       } else if (attacker === t) {
         t.cash = Math.max(0, t.cash + amount * E.selfDamage);
       }
-      if (t.power > this.maxPower(t)) t.power = this.maxPower(t);
       this.emit('hit', { player: t, amount });
       if (t.health <= 0.5) {
         t.health = 0; t.alive = false; t.shield = 0;

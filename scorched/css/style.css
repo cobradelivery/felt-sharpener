@@ -42,7 +42,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hb:hover { background: #3a2c4d; }
 .hb:active { background: var(--hot); }
 .power { position: relative; width: 110px; height: 20px; border-radius: 5px; background: #120c18; border: 1px solid var(--line); overflow: hidden; }
-.power-max { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(45deg, #301818 0 4px, #1c0f12 4px 8px); }
 .power-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #ffd35a, #ff7a1a, #ff3b1a); }
 .power output { position: absolute; inset: 0; line-height: 20px; text-shadow: 0 1px 2px #000; }
 .weapon { background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 2px 4px; }
@@ -62,6 +61,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: linear-gradient(#ff8a2a, #e0400a); box-shadow: 0 2px 0 #7a1e00, 0 0 14px rgba(255, 110, 20, 0.5); touch-action: manipulation;
 }
 .fire:active { transform: translateY(2px); box-shadow: 0 0 0 #7a1e00; }
+.speed { margin-left: auto; height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 800; touch-action: manipulation; }
+.speed[aria-pressed="true"] { background: linear-gradient(#5fc8ff, #1d7fd0); border-color: transparent; box-shadow: 0 0 14px rgba(80, 180, 255, 0.5); }
+#hud.spectating .fire { display: none; }
+#hud.ai-turn .speed { opacity: 1; pointer-events: auto; }
 
 .banner {
   position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%) scale(0.9); padding: 10px 26px; border-radius: 10px;

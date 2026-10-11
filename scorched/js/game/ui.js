@@ -6,6 +6,8 @@
   const W = SE.weapons;
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  /** The default human is literally named "You", so messages need second-person grammar for them. */
+  const isYou = (p) => /^you$/i.test(String(p.name).trim());
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const COLORS = ['#ff4b4b', '#4aa8ff', '#5be05b', '#ffd23a', '#d35bff', '#3fe3cf', '#ff8f2a', '#f2f2f2', '#ff6fb5', '#a0ff4a'];
@@ -95,7 +97,7 @@
   function renderShop(game, player, sub, onDone) {
     let tab = 'weapon';
     $('shop-swatch').style.background = player.color;
-    $('shop-title').textContent = player.name + ' — Arms Dealer';
+    $('shop-title').textContent = isYou(player) ? 'Your Arms Dealer' : player.name + "'s Arms Dealer";
     $('shop-sub').textContent = sub;
     const grid = $('shop-grid');
     const draw = () => {
@@ -131,11 +133,11 @@
     const winner = summary.winner != null ? game.players[summary.winner] : null;
     if (over) {
       const champ = game.standings()[0];
-      $('res-title').textContent = `${champ.name} wins the war!`;
+      $('res-title').textContent = isYou(champ) ? 'You win the war!' : `${champ.name} wins the war!`;
       $('res-sub').textContent = `Final standings after ${game.round} round${game.round > 1 ? 's' : ''}.`;
     } else {
       $('res-title').textContent = `Round ${summary.round} of ${game.opts.rounds}`;
-      $('res-sub').textContent = winner ? `Last tank standing: ${winner.name}.` : 'Nobody survived this round.';
+      $('res-sub').textContent = !winner ? 'Nobody survived this round.' : isYou(winner) ? 'You are the last tank standing.' : `${winner.name} is the last tank standing.`;
     }
     const rows = over ? game.standings().map((p) => summary.rows.find((r) => r.id === p.id)) : summary.rows.slice().sort((a, b) => b.score - a.score);
     const body = $('res-body'); body.innerHTML = '';
@@ -178,7 +180,7 @@
   function updateHud(game) {
     const t = game.current;
     if (!t) return;
-    const wp = W.get(t.weapon), maxP = game.maxPower(t);
+    const wp = W.get(t.weapon);
     const key = [t.id, t.angle.toFixed(1), Math.round(t.power), t.weapon, t.inv[t.weapon], Math.floor(t.cash), game.wind, game.round,
       t.shield > 0, Math.round(t.health), Math.round(t.inv.fuel), HUD_ITEMS.map((i) => t.inv[i]).join(), game.phase].join('|');
     if (key === hudKey) return;
@@ -191,7 +193,6 @@
     $('hud-angle').textContent = (a > 90 ? '↖ ' + (180 - a).toFixed(0) : (a < 90 ? '↗ ' + a.toFixed(0) : '↑ 90')) + '°';
     $('hud-power').textContent = Math.round(t.power);
     $('hud-power-bar').style.width = (t.power / 10) + '%';
-    $('hud-pmax').style.width = (100 - maxP / 10) + '%';
     $('hud-wname').textContent = wp.name;
     $('hud-wcount').textContent = isFinite(t.inv[t.weapon]) ? '× ' + t.inv[t.weapon] : '∞';
     SE.render.drawIcon($('hud-wicon'), t.weapon);
@@ -218,5 +219,5 @@
     bannerTimer = setTimeout(() => b.classList.remove('show'), ms || 1300);
   }
 
-  SE.ui = { COLORS, CPU_NAMES, loadSetup, renderSetup, renderShop, renderResults, buildHud, updateHud, banner, show, hideAll, resetHud: () => { hudKey = ''; } };
+  SE.ui = { isYou, COLORS, CPU_NAMES, loadSetup, renderSetup, renderShop, renderResults, buildHud, updateHud, banner, show, hideAll, resetHud: () => { hudKey = ''; } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

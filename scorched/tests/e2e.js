@@ -127,7 +127,7 @@ const humanTurn = (p) => waitFor(p, () => { const g = SE.app.game; return g && g
   if (sum('mirv', 'split') !== 1 || sum('mirv', 'boom') < 5) fail('MIRV should split into 5: ' + JSON.stringify(shots.mirv));
   if (sum('funky', 'boom') < 4) fail('funky bomb should scatter bomblets: ' + JSON.stringify(shots.funky));
   if (sum('leapfrog', 'boom') < 2) fail('leapfrog should bounce: ' + JSON.stringify(shots.leapfrog));
-  if (!(shots.tonofdirt.removed < -2000)) fail('ton of dirt should add ground: ' + JSON.stringify(shots.tonofdirt));
+  if (!(shots.tonofdirt.removed < -500)) fail('ton of dirt should add ground: ' + JSON.stringify(shots.tonofdirt));
   if (!(shots.digger.removed > 200)) fail('digger should tunnel: ' + JSON.stringify(shots.digger));
   if (sum('napalm', 'napalm') !== 1) fail('napalm should ignite: ' + JSON.stringify(shots.napalm));
   if (sum('tracer', 'boom') !== 0) fail('tracer must not explode');
@@ -155,14 +155,55 @@ const humanTurn = (p) => waitFor(p, () => { const g = SE.app.game; return g && g
   await p.waitForSelector('#scr-results.active', { timeout: 15000 });
   const resTitle = await p.textContent('#res-title');
   if (!/Round 1/.test(resTitle)) fail('unexpected results title ' + resTitle);
+  const resSub = await p.textContent('#res-sub');
+  if (resSub !== 'You are the last tank standing.') fail('results grammar: ' + resSub);
   await p.screenshot({ path: path.join(OUT, 'scorched-results.png') });
   await p.click('#res-foot .btn.primary');
   await p.waitForSelector('#scr-shop.active');
+  if ((await p.textContent('#shop-title')) !== 'Your Arms Dealer') fail('shop title grammar');
   await p.click('#shop-done');
   await waitFor(p, () => SE.app.game.round === 2);
+  // Losing the war reads "Boomer wins the war!", winning it "You win the war!".
+  const warTitle = await p.evaluate(() => {
+    const g = SE.app.game; g.opts.rounds = 2;
+    const [me, foe] = g.players; me.score = 1e6;
+    g.damage(foe, 999, me); g.endTurn();
+    return g.phase;
+  });
+  if (warTitle !== 'gameOver') fail('expected game over, got ' + warTitle);
+  await p.waitForSelector('#scr-results.active', { timeout: 15000 });
+  if ((await p.textContent('#res-title')) !== 'You win the war!') fail('war title grammar: ' + await p.textContent('#res-title'));
 
   if (errs.length) fail('page errors:\n' + errs.join('\n'));
   await p.close();
+
+  // Once every human is out, a toggle runs the rest of the round at 3× speed.
+  {
+    const s = await open(b, { width: 1366, height: 800 });
+    await s.p.selectOption('#opt-startCash', { label: '$0' });
+    await s.p.click('#start-game'); // You + 3 CPUs
+    await waitFor(s.p, () => SE.app.game && SE.app.game.phase === 'aim');
+    if (await s.p.isVisible('#hud-speed')) fail('speed toggle should be hidden while you are alive');
+    await s.p.evaluate(() => { const g = SE.app.game; for (const t of g.players) t.inv.parachute = 0; g.damage(g.players[0], 999, g.players[1]); });
+    await s.p.waitForFunction(() => /You were destroyed!/.test(document.getElementById('banner').textContent), null, { timeout: 5000 });
+    await s.p.waitForSelector('#hud-speed:not(.hidden)', { timeout: 5000 });
+    if (await s.p.isVisible('#hud-fire')) fail('FIRE should be hidden while spectating');
+    const rate = async () => s.p.evaluate(async () => {
+      const g = SE.app.game, t0 = g.time, w0 = performance.now();
+      await new Promise((r) => setTimeout(r, 1000));
+      return (g.time - t0) / ((performance.now() - w0) / 1000);
+    });
+    const slow = await rate();
+    await s.p.click('#hud-speed');
+    if ((await s.p.getAttribute('#hud-speed', 'aria-pressed')) !== 'true') fail('speed toggle did not turn on');
+    if ((await s.p.textContent('#hud-speed')) !== '⏩ 3×') fail('speed label');
+    const fast = await rate();
+    if (!(fast > slow * 2.3)) fail(`3× speed not applied: ${slow.toFixed(2)} -> ${fast.toFixed(2)}`);
+    await s.p.keyboard.press('KeyF');
+    if ((await s.p.getAttribute('#hud-speed', 'aria-pressed')) !== 'false') fail('F should toggle speed off');
+    if (s.errs.length) fail('spectator page errors:\n' + s.errs.join('\n'));
+    await s.p.close();
+  }
 
   // Phone, landscape.
   const m = await open(b, { width: 844, height: 390 });

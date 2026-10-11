@@ -112,14 +112,14 @@ test('falling: damage without a parachute, none with one', () => {
   }
 });
 
-test('max power drops as health drops', () => {
+test('damage never limits power, so a hurt tank can still hit back', () => {
   const g = duel();
   const a = g.players[0];
-  assert.strictEqual(g.maxPower(a), 1000);
-  g.damage(a, 50, g.players[1]);
-  assert.strictEqual(g.maxPower(a), 650);
-  g.setAim(null, 1000);
-  assert.strictEqual(a.power, 650);
+  a.power = 1000;
+  g.damage(a, 90, g.players[1]);
+  assert.strictEqual(a.power, 1000);
+  g.setAim(null, 2000);
+  assert.strictEqual(a.power, 1000);
 });
 
 test('shop: buy charges per bundle, sell refunds half, no credit', () => {
